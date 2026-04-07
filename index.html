@@ -1794,9 +1794,13 @@ function renderHist() {
       totExtra += (jor.extra || 0);
       totAdic  += (jor.adHoras || 0);
 
-      // HE cell: mostra split noturno/diurno — somente admin ve HE de dias normais
+      // HE cell — sab/dom/feriado: todas as horas sao HE; dia normal: só admin vê
       var heCell = '';
-      if (jor.extra > 0 && (sessao.tipo === 'admin' || jor.tipo !== 'normal')) {
+      if (jor.tipo !== 'normal') {
+        var hePill  = jor.adPerc === 50 ? 'extra-pill' : 'adic-pill';
+        var heLabel = jor.adPerc === 50 ? 'HE 50%' : 'HE 100%';
+        heCell = '<span class="' + hePill + '">' + minToStr(jor.liquido) + ' (' + heLabel + ')</span>';
+      } else if (jor.extra > 0 && sessao.tipo === 'admin') {
         if (jor.heNot > 0) heCell += '<span class="not-pill">+' + minToStr(jor.heNot) + ' not</span> ';
         if (jor.heDiu > 0) heCell += '<span class="extra-pill">+' + minToStr(jor.heDiu) + ' diu</span>';
         if (!heCell) heCell = '<span class="extra-pill">+' + minToStr(jor.extra) + '</span>';
@@ -1804,7 +1808,8 @@ function renderHist() {
         heCell = '<span style="color:var(--cm);font-size:12px;">-</span>';
       }
 
-      var adicCell = (jor.adHoras > 0 && (sessao.tipo === 'admin' || jor.tipo !== 'normal'))
+      // Adicional financeiro: só em dias normais com HE (admin) — sab/dom/fer já fica no heCell
+      var adicCell = (jor.tipo === 'normal' && jor.extra > 0 && sessao.tipo === 'admin')
         ? '<span class="adic-pill">+' + jor.adPerc + '% (' + minToStr(jor.adHoras) + ')</span>'
         : '<span style="color:var(--cm);font-size:12px;">-</span>';
       var refCell = jor.temRefeicao
@@ -1812,6 +1817,7 @@ function renderHist() {
         : '<span style="color:var(--cm);font-size:12px;">sem int.</span>';
       var notTag = jor.modoNoturno ? ' <span class="not-pill" style="font-size:10px;">NOT</span>' : '';
 
+      // Adicional financeiro removido da visualizacao
       fRows += '<tr>'
         + '<td>' + f.nome + '</td>'
         + '<td class="dim">' + f.entrada + '</td>'
@@ -1819,7 +1825,6 @@ function renderHist() {
         + '<td><span class="h-pill">' + minToStr(jor.liquido) + '</span>' + notTag + '</td>'
         + '<td>' + refCell + '</td>'
         + '<td>' + heCell + '</td>'
-        + '<td>' + adicCell + '</td>'
         + '</tr>';
     });
 
@@ -1828,8 +1833,12 @@ function renderHist() {
     var diaStrip = '<div class="dia-strip ' + diaClasse + '">'
       + '<span>' + diaNome + '</span>'
       + '<div class="dia-strip-r">'
-      + (totExtra > 0 && mostrarHE ? '<span class="ds-tag">HE: ' + minToStr(totExtra) + '</span>' : '')
-      + (totAdic > 0  && mostrarHE ? '<span class="ds-tag">Adic: ' + minToStr(totAdic) + '</span>' : '')
+      + (tipo === 'normal' && totExtra > 0 && mostrarHE
+          ? '<span class="ds-tag">HE: ' + minToStr(totExtra) + '</span>' : '')
+      + (tipo !== 'normal' && totLiq > 0 && mostrarHE
+          ? '<span class="ds-tag">HE Total: ' + minToStr(totLiq) + '</span>' : '')
+      + (tipo !== 'normal' && totAdic > 0 && mostrarHE
+          ? '<span class="ds-tag">Adic: ' + minToStr(totAdic) + '</span>' : '')
       + '</div></div>';
 
     // Sumario do dia
@@ -1838,8 +1847,11 @@ function renderHist() {
       var avgLiq = Math.round(totLiq / qtdTrab);
       sumHtml = '<div class="sumario-row">'
         + '<div class="sum-item dest"><div class="sum-val">' + minToStr(avgLiq) + '</div><div class="sum-lbl">Media liquida</div></div>'
-        + (totExtra > 0 ? '<div class="sum-item warn"><div class="sum-val">' + minToStr(totExtra) + '</div><div class="sum-lbl">Total extras</div></div>' : '')
-        + (totAdic > 0  ? '<div class="sum-item adic"><div class="sum-val">' + minToStr(totAdic) + '</div><div class="sum-lbl">Total adic.</div></div>' : '')
+        + (tipo !== 'normal'
+            ? '<div class="sum-item warn"><div class="sum-val">' + minToStr(totLiq) + '</div><div class="sum-lbl">Total HE</div></div>'
+              + '<div class="sum-item adic"><div class="sum-val">' + minToStr(totAdic) + '</div><div class="sum-lbl">Adicional</div></div>'
+            : (totExtra > 0 ? '<div class="sum-item warn"><div class="sum-val">' + minToStr(totExtra) + '</div><div class="sum-lbl">Total extras</div></div>' : '')
+              + (totAdic  > 0 ? '<div class="sum-item adic"><div class="sum-val">' + minToStr(totAdic) + '</div><div class="sum-lbl">Total adic.</div></div>' : ''))
         + '<div class="sum-item"><div class="sum-val">' + qtdTrab + '</div><div class="sum-lbl">Trabalharam</div></div>'
         + '</div>';
     }
@@ -1855,7 +1867,7 @@ function renderHist() {
       + '</div>'
       + '<div class="reg-body" id="body-' + r.id + '">'
       + strip
-      + '<table class="ftbl"><thead><tr><th>Funcionario</th><th>Entrada</th><th>Saida</th><th>Liquido</th><th>Intervalo</th><th>HE (not/diu)</th><th>Adicional</th></tr></thead>'
+      + '<table class="ftbl"><thead><tr><th>Funcionario</th><th>Entrada</th><th>Saida</th><th>Liquido</th><th>Intervalo</th><th>HE</th></tr></thead>'
       + '<tbody>' + fRows + '</tbody></table>'
       + sumHtml
       + obsH
