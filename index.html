@@ -1824,11 +1824,12 @@ function renderHist() {
     });
 
     // Strip de tipo do dia
+    var mostrarHE = sessao.tipo === 'admin' || tipo !== 'normal';
     var diaStrip = '<div class="dia-strip ' + diaClasse + '">'
       + '<span>' + diaNome + '</span>'
       + '<div class="dia-strip-r">'
-      + (totExtra > 0 ? '<span class="ds-tag">HE: ' + minToStr(totExtra) + '</span>' : '')
-      + (totAdic > 0  ? '<span class="ds-tag">Adic: ' + minToStr(totAdic) + '</span>' : '')
+      + (totExtra > 0 && mostrarHE ? '<span class="ds-tag">HE: ' + minToStr(totExtra) + '</span>' : '')
+      + (totAdic > 0  && mostrarHE ? '<span class="ds-tag">Adic: ' + minToStr(totAdic) + '</span>' : '')
       + '</div></div>';
 
     // Sumario do dia
@@ -1837,8 +1838,8 @@ function renderHist() {
       var avgLiq = Math.round(totLiq / qtdTrab);
       sumHtml = '<div class="sumario-row">'
         + '<div class="sum-item dest"><div class="sum-val">' + minToStr(avgLiq) + '</div><div class="sum-lbl">Media liquida</div></div>'
-        + (totExtra > 0 ? '<div class="sum-item warn"><div class="sum-val">' + minToStr(totExtra) + '</div><div class="sum-lbl">Total extras</div></div>' : '')
-        + (totAdic > 0  ? '<div class="sum-item adic"><div class="sum-val">' + minToStr(totAdic) + '</div><div class="sum-lbl">Total adic.</div></div>' : '')
+        + (totExtra > 0 && mostrarHE ? '<div class="sum-item warn"><div class="sum-val">' + minToStr(totExtra) + '</div><div class="sum-lbl">Total extras</div></div>' : '')
+        + (totAdic > 0  && mostrarHE ? '<div class="sum-item adic"><div class="sum-val">' + minToStr(totAdic) + '</div><div class="sum-lbl">Total adic.</div></div>' : '')
         + '<div class="sum-item"><div class="sum-val">' + qtdTrab + '</div><div class="sum-lbl">Trabalharam</div></div>'
         + '</div>';
     }
