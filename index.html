@@ -1759,7 +1759,6 @@ function renderHist() {
     else if (todoAbono)  bdg = '<span class="badge b-abono">Abono Total</span>';
     else if (temAbono)   bdg = '<span class="badge b-misto">Misto</span>';
     else                 bdg = '<span class="badge b-norm">Normal</span>';
-
     var encB = (sessao.tipo === 'admin' && r.encNome) ? '<span class="badge b-enc">' + r.encNome + '</span>' : '';
     // Badge de ajuste pendente
     var ajustes = r.ajustes || [];
@@ -1795,9 +1794,9 @@ function renderHist() {
       totExtra += (jor.extra || 0);
       totAdic  += (jor.adHoras || 0);
 
-      // HE cell: mostra split noturno/diurno
+      // HE cell: mostra split noturno/diurno — somente admin ve HE de dias normais
       var heCell = '';
-      if (jor.extra > 0) {
+      if (jor.extra > 0 && (sessao.tipo === 'admin' || jor.tipo !== 'normal')) {
         if (jor.heNot > 0) heCell += '<span class="not-pill">+' + minToStr(jor.heNot) + ' not</span> ';
         if (jor.heDiu > 0) heCell += '<span class="extra-pill">+' + minToStr(jor.heDiu) + ' diu</span>';
         if (!heCell) heCell = '<span class="extra-pill">+' + minToStr(jor.extra) + '</span>';
@@ -1805,7 +1804,7 @@ function renderHist() {
         heCell = '<span style="color:var(--cm);font-size:12px;">-</span>';
       }
 
-      var adicCell = jor.adHoras > 0
+      var adicCell = (jor.adHoras > 0 && (sessao.tipo === 'admin' || jor.tipo !== 'normal'))
         ? '<span class="adic-pill">+' + jor.adPerc + '% (' + minToStr(jor.adHoras) + ')</span>'
         : '<span style="color:var(--cm);font-size:12px;">-</span>';
       var refCell = jor.temRefeicao
@@ -2767,7 +2766,6 @@ function renderResumoColab() {
     var temRef = m.func.refeicao !== undefined ? m.func.refeicao : true;
     var jor = calcJornada(m.func.entrada, m.func.saida, m.reg.data, temRef, uf);
     if (!jor) return;
-    if (jor.tipo === 'normal')  totalHe50  += (jor.extra || 0);
     if (jor.adPerc === 50)      totalHe50  += (jor.liquido || 0);
     if (jor.adPerc === 100)     totalHe100 += (jor.liquido || 0);
   });
@@ -2809,7 +2807,9 @@ function renderResumoColab() {
     // Badge situacao
     var sitBadge = ab !== 'Trabalhou'
       ? '<span class="badge b-abono">' + ab + '</span>'
-      : (jor && jor.extra > 0 ? '<span class="badge" style="background:#FFF3E0;color:#E65100;">+HE</span>' : '<span class="badge b-norm">Normal</span>');
+      : (jor && jor.extra > 0 && (sessao.tipo === 'admin' || jor.tipo !== 'normal')
+          ? '<span class="badge" style="background:#FFF3E0;color:#E65100;">+HE</span>'
+          : '<span class="badge b-norm">Normal</span>');
 
     // Ajustes deste funcionario neste registro
     var ajsFunc = (r.ajustes || []).filter(function(a){ return a.regId === r.id && a.funcNome === funcNome; });
@@ -2847,7 +2847,7 @@ function renderResumoColab() {
           ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">Entrada</div><div class="col-detalhe-val">' + (f.entrada||'-') + '</div></div>'
           + '<div class="col-detalhe-item"><div class="col-detalhe-lbl">Saida</div><div class="col-detalhe-val">' + (f.saida||'-') + '</div></div>'
           + '<div class="col-detalhe-item"><div class="col-detalhe-lbl">H. Liquida</div><div class="col-detalhe-val">' + (jor ? minToStr(jor.liquido) : '-') + '</div></div>'
-          + (jor && jor.tipo === 'normal' && jor.extra > 0
+          + (jor && jor.tipo === 'normal' && jor.extra > 0 && sessao.tipo === 'admin'
               ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">HE Dia Normal</div><div class="col-detalhe-val"><span class="he-norm-pill">+' + minToStr(jor.extra) + '</span></div></div>'
               : '')
           + (jor && jor.adPerc === 50
