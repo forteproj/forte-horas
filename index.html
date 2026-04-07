@@ -1834,12 +1834,12 @@ function renderHist() {
 
     // Sumario do dia
     var sumHtml = '';
-    if (qtdTrab > 0) {
+    if (qtdTrab > 0 && mostrarHE) {
       var avgLiq = Math.round(totLiq / qtdTrab);
       sumHtml = '<div class="sumario-row">'
         + '<div class="sum-item dest"><div class="sum-val">' + minToStr(avgLiq) + '</div><div class="sum-lbl">Media liquida</div></div>'
-        + (totExtra > 0 && mostrarHE ? '<div class="sum-item warn"><div class="sum-val">' + minToStr(totExtra) + '</div><div class="sum-lbl">Total extras</div></div>' : '')
-        + (totAdic > 0  && mostrarHE ? '<div class="sum-item adic"><div class="sum-val">' + minToStr(totAdic) + '</div><div class="sum-lbl">Total adic.</div></div>' : '')
+        + (totExtra > 0 ? '<div class="sum-item warn"><div class="sum-val">' + minToStr(totExtra) + '</div><div class="sum-lbl">Total extras</div></div>' : '')
+        + (totAdic > 0  ? '<div class="sum-item adic"><div class="sum-val">' + minToStr(totAdic) + '</div><div class="sum-lbl">Total adic.</div></div>' : '')
         + '<div class="sum-item"><div class="sum-val">' + qtdTrab + '</div><div class="sum-lbl">Trabalharam</div></div>'
         + '</div>';
     }
