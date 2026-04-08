@@ -295,7 +295,16 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 .col-funcao{font-size:13px;color:var(--cm);}
 .col-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
 @media(max-width:500px){.col-stats{grid-template-columns:repeat(2,1fr);}}
-/* V6 - SENHA TOGGLE */
+/* V10 - CARD FALTAS */
+.col-faltas-card{background:white;border-radius:var(--r);border:1px solid var(--cb);margin-bottom:16px;box-shadow:var(--sh);overflow:hidden;}
+.col-faltas-head{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;background:#FFF8F0;border-bottom:1px solid #FFCC80;}
+.col-faltas-lbl{font-size:13px;font-weight:700;color:#E65100;display:flex;align-items:center;gap:8px;}
+.col-faltas-lbl::before{content:'⚠';font-size:14px;}
+.col-faltas-body{padding:12px 16px;}
+.col-falta-item{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--cf);font-size:13px;color:var(--ct);}
+.col-falta-item:last-child{border-bottom:none;}
+.col-falta-data{font-weight:600;}
+.col-falta-tipo{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:#FFF3E0;color:#E65100;}
 .btn-senha-ver{background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px;color:var(--cm);vertical-align:middle;line-height:1;}
 .btn-senha-ver:hover{color:var(--ct);}
 .senha-mask{font-family:monospace;font-size:12px;color:var(--cm);letter-spacing:1px;vertical-align:middle;}
@@ -615,6 +624,7 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
       </div>
     </div>
     <div class="col-stats" id="col-stats"></div>
+    <div id="col-faltas-wrap"></div>
     <div class="hist-bar" style="margin-bottom:16px;">
       <input type="text" id="col-busca" placeholder="Buscar por obra ou data..." />
     </div>
@@ -2787,6 +2797,58 @@ function renderResumoColab() {
     '<div class="col-stat"><div class="col-stat-num">' + totalAbono + '</div><div class="col-stat-lbl">Abonos</div></div>' +
     '<div class="col-stat"><div class="col-stat-num" style="color:#E65100;">' + (totalHe50 > 0 ? minToStr(totalHe50) : '-') + '</div><div class="col-stat-lbl">HE 50%</div></div>' +
     '<div class="col-stat"><div class="col-stat-num" style="color:#880E4F;">' + (totalHe100 > 0 ? minToStr(totalHe100) : '-') + '</div><div class="col-stat-lbl">HE 100%</div></div>';
+
+  // CARD DE FALTAS — dias úteis sem registro nos últimos 30 dias
+  var wrapFaltas = document.getElementById('col-faltas-wrap');
+  var diasComReg = {};
+  allRegs.forEach(function(r) {
+    r.funcionarios.forEach(function(f) {
+      if (f.nome === funcNome) diasComReg[r.data] = true;
+    });
+  });
+
+  // Percorre os últimos 30 dias úteis verificando ausências
+  var hoje = new Date();
+  var faltando = [];
+  for (var d = 1; d <= 60 && faltando.length < 30; d++) {
+    var dt = new Date(hoje);
+    dt.setDate(hoje.getDate() - d);
+    var dow = dt.getDay();
+    if (dow === 0 || dow === 6) continue; // pula fim de semana
+    var dtStr = dt.toISOString().split('T')[0];
+    if (isFeriado(dtStr, '')) continue; // pula feriados nacionais
+    if (!diasComReg[dtStr]) {
+      faltando.push(dtStr);
+    }
+  }
+
+  if (faltando.length === 0) {
+    wrapFaltas.innerHTML = '';
+  } else {
+    var fHtml = '<div class="col-faltas-card">'
+      + '<div class="col-faltas-head" id="col-faltas-head">'
+      + '<div class="col-faltas-lbl">Dias sem marcacao (' + faltando.length + ')</div>'
+      + '<span class="chev" id="col-faltas-chev">v</span>'
+      + '</div>'
+      + '<div class="col-faltas-body" id="col-faltas-body" style="display:none;">';
+    faltando.forEach(function(dtStr) {
+      var dtFmt = new Date(dtStr + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+      fHtml += '<div class="col-falta-item">'
+        + '<span class="col-falta-data">' + dtFmt + '</span>'
+        + '<span class="col-falta-tipo">Sem registro</span>'
+        + '</div>';
+    });
+    fHtml += '</div></div>';
+    wrapFaltas.innerHTML = fHtml;
+
+    document.getElementById('col-faltas-head').addEventListener('click', function() {
+      var body = document.getElementById('col-faltas-body');
+      var chev = document.getElementById('col-faltas-chev');
+      var open = body.style.display !== 'none';
+      body.style.display = open ? 'none' : 'block';
+      chev.classList.toggle('open', !open);
+    });
+  }
 
   // Filtro busca
   if (busca) {
