@@ -627,6 +627,21 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
     <div id="col-faltas-wrap"></div>
     <div class="hist-bar" style="margin-bottom:16px;">
       <input type="text" id="col-busca" placeholder="Buscar por obra ou data..." />
+      <select id="col-mes" style="min-width:130px;">
+        <option value="01">Janeiro</option>
+        <option value="02">Fevereiro</option>
+        <option value="03">Março</option>
+        <option value="04">Abril</option>
+        <option value="05">Maio</option>
+        <option value="06">Junho</option>
+        <option value="07">Julho</option>
+        <option value="08">Agosto</option>
+        <option value="09">Setembro</option>
+        <option value="10">Outubro</option>
+        <option value="11">Novembro</option>
+        <option value="12">Dezembro</option>
+      </select>
+      <select id="col-ano" style="min-width:100px;"></select>
     </div>
     <div id="col-lista-regs"></div>
   </div>
@@ -2767,8 +2782,25 @@ function renderResumoColab() {
   var funcObj = getFuncs().find(function(f){ return f.nome === funcNome; });
   document.getElementById('col-funcao-display').textContent = funcObj ? (funcObj.funcao || 'Funcionario') : 'Funcionario';
 
+  // Popular anos dinamicamente
+  var selAno = document.getElementById('col-ano');
+  var anoAtual = new Date().getFullYear();
+  var mesAtual = String(new Date().getMonth() + 1).padStart(2, '0');
+  if (!selAno.options.length) {
+    for (var y = anoAtual; y >= anoAtual - 2; y--) {
+      var opt = document.createElement('option');
+      opt.value = String(y); opt.textContent = String(y);
+      if (y === anoAtual) opt.selected = true;
+      selAno.appendChild(opt);
+    }
+    // Pré-seleciona mês atual
+    document.getElementById('col-mes').value = mesAtual;
+  }
+
+  var fMes = document.getElementById('col-mes').value;
+  var fAno = document.getElementById('col-ano').value;
   var busca = (document.getElementById('col-busca').value || '').toLowerCase();
-  // Busca todos os registros onde este funcionario aparece
+
   var allRegs = getRegs();
   var meus = [];
   allRegs.forEach(function(r) {
@@ -2798,7 +2830,7 @@ function renderResumoColab() {
     '<div class="col-stat"><div class="col-stat-num" style="color:#E65100;">' + (totalHe50 > 0 ? minToStr(totalHe50) : '-') + '</div><div class="col-stat-lbl">HE 50%</div></div>' +
     '<div class="col-stat"><div class="col-stat-num" style="color:#880E4F;">' + (totalHe100 > 0 ? minToStr(totalHe100) : '-') + '</div><div class="col-stat-lbl">HE 100%</div></div>';
 
-  // CARD DE FALTAS — dias úteis sem registro nos últimos 30 dias
+  // CARD DE FALTAS — dias úteis do mês/ano selecionado sem registro
   var wrapFaltas = document.getElementById('col-faltas-wrap');
   var diasComReg = {};
   allRegs.forEach(function(r) {
@@ -2807,19 +2839,16 @@ function renderResumoColab() {
     });
   });
 
-  // Percorre os últimos 30 dias úteis verificando ausências
-  var hoje = new Date();
+  // Percorre todos os dias úteis do mês/ano selecionado
+  var anoFil = parseInt(fAno), mesFil = parseInt(fMes);
+  var primeiroDia = new Date(anoFil, mesFil - 1, 1);
+  var ultimoDia  = new Date(anoFil, mesFil, 0);
+  var hoje2 = new Date();
   var faltando = [];
-  for (var d = 1; d <= 60 && faltando.length < 30; d++) {
-    var dt = new Date(hoje);
-    dt.setDate(hoje.getDate() - d);
-    var dow = dt.getDay();
-    if (dow === 0 || dow === 6) continue; // pula fim de semana
-    var dtStr = dt.toISOString().split('T')[0];
-    if (isFeriado(dtStr, '')) continue; // pula feriados nacionais
-    if (!diasComReg[dtStr]) {
-      faltando.push(dtStr);
-    }
+  for (var d = new Date(primeiroDia); d <= ultimoDia && d <= hoje2; d.setDate(d.getDate() + 1)) {
+    var dtStr = d.toISOString().split('T')[0];
+    if (isFeriado(dtStr, '')) continue;
+    if (!diasComReg[dtStr]) faltando.push(dtStr);
   }
 
   if (faltando.length === 0) {
@@ -2850,25 +2879,32 @@ function renderResumoColab() {
     });
   }
 
-  // Filtro busca
+  // Filtra registros pelo mês/ano selecionado
+  var meusFiltrados = meus.filter(function(m) {
+    if (!m.reg.data) return false;
+    var p = m.reg.data.split('-');
+    return p[0] === fAno && p[1] === fMes;
+  });
+
+  // Filtro busca sobre o mês filtrado
   if (busca) {
-    meus = meus.filter(function(m) {
+    meusFiltrados = meusFiltrados.filter(function(m) {
       return m.reg.local.toLowerCase().indexOf(busca) >= 0
         || (m.reg.data || '').indexOf(busca) >= 0;
     });
   }
 
   // Ordena mais recente primeiro
-  meus.sort(function(a,b){ return (a.reg.data > b.reg.data) ? -1 : 1; });
+  meusFiltrados.sort(function(a,b){ return (a.reg.data > b.reg.data) ? -1 : 1; });
 
   var el = document.getElementById('col-lista-regs');
-  if (!meus.length) {
+  if (!meusFiltrados.length) {
     el.innerHTML = '<div class="empty"><div class="ico">-</div><p>Nenhum registro encontrado.</p></div>';
     return;
   }
 
   var html = '';
-  meus.forEach(function(m, idx) {
+  meusFiltrados.forEach(function(m, idx) {
     var r = m.reg, f = m.func;
     var dt = r.data ? new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
     var ab = f.abono || 'Trabalhou';
@@ -2983,6 +3019,8 @@ document.getElementById('col-lista-regs').addEventListener('click', function(e) 
 });
 
 document.getElementById('col-busca').addEventListener('input', renderResumoColab);
+document.getElementById('col-mes').addEventListener('change', renderResumoColab);
+document.getElementById('col-ano').addEventListener('change', renderResumoColab);
 
 })(); // fim do IIFE
 } // fim iniciarSistema
