@@ -2842,11 +2842,14 @@ function renderResumoColab() {
   // Percorre todos os dias úteis do mês/ano selecionado
   var anoFil = parseInt(fAno), mesFil = parseInt(fMes);
   var primeiroDia = new Date(anoFil, mesFil - 1, 1);
-  var ultimoDia  = new Date(anoFil, mesFil, 0);
-  var hoje2 = new Date();
+  var ultimoDia   = new Date(anoFil, mesFil, 0);
+  var hojeStr = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
   var faltando = [];
-  for (var d = new Date(primeiroDia); d <= ultimoDia && d <= hoje2; d.setDate(d.getDate() + 1)) {
-    var dtStr = d.toISOString().split('T')[0];
+  for (var di = new Date(primeiroDia); di <= ultimoDia; di.setDate(di.getDate() + 1)) {
+    var dtStr = di.getFullYear() + '-'
+      + String(di.getMonth() + 1).padStart(2, '0') + '-'
+      + String(di.getDate()).padStart(2, '0');
+    if (dtStr > hojeStr) break; // não mostra dias futuros
     if (isFeriado(dtStr, '')) continue;
     if (!diasComReg[dtStr]) faltando.push(dtStr);
   }
