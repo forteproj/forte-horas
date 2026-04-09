@@ -2987,16 +2987,11 @@ function renderResumoColab() {
     return;
   }
 
-  // Botão imprimir resumo do mês
-  var btnImpHtml = '<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">'
-    + '<button class="btn-print" id="btn-imprimir-colab" style="padding:8px 16px;font-size:13px;">Imprimir Resumo do Mês</button>'
+  // Botão imprimir + cards — tudo em uma só atribuição para evitar perda de listeners
+  var html = '<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">'
+    + '<button class="btn-print" id="btn-imprimir-colab" data-imp-colab="1" style="padding:8px 16px;font-size:13px;">&#128438; Imprimir Resumo do Mês</button>'
     + '</div>';
-  el.innerHTML = btnImpHtml;
-  document.getElementById('btn-imprimir-colab').addEventListener('click', function() {
-    imprimirResumoColab(funcNome, fMes, fAno);
-  });
 
-  var html = '';
   meusFiltrados.forEach(function(m, idx) {
     var r = m.reg, f = m.func;
     var dt = r.data ? new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
@@ -3067,9 +3062,18 @@ function renderResumoColab() {
       + btnSol
       + '</div></div>';
   });
-  el.innerHTML += html;
+  el.innerHTML = html;
 }
 document.getElementById('col-lista-regs').addEventListener('click', function(e) {
+  // Imprimir resumo do colaborador
+  var btnImp = e.target.closest('[data-imp-colab]');
+  if (btnImp) {
+    var fM = document.getElementById('col-mes').value;
+    var fA = document.getElementById('col-ano').value;
+    var fN = sessao.funcNome || sessao.nome;
+    imprimirResumoColab(fN, fM, fA);
+    return;
+  }
   var head = e.target.closest('.col-reg-head');
   if (head && !e.target.closest('button')) {
     var idx = head.dataset.colidx;
