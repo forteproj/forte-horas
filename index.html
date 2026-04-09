@@ -2091,10 +2091,15 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
     + '<th style="text-align:center;">HE</th>'
     + '</tr></thead><tbody>' + rows + sumRow + '</tbody></table>'
     + '<p class="foot">Gerado em ' + new Date().toLocaleString('pt-BR') + ' | FORTE Sistema</p>';
-  var w = window.open('', '_blank');
-  w.document.write('<html><head><title>Resumo ' + funcNome + '</title><style>' + styleStr + '</style></head><body>' + bodyStr + '</body></html>');
-  w.document.close();
-  w.print();
+  var htmlCompleto = '<html><head><title>Resumo ' + funcNome + '</title><style>' + styleStr + '</style></head><body>' + bodyStr + '</body></html>';
+  var blob = new Blob([htmlCompleto], { type: 'text/html;charset=utf-8' });
+  var url  = URL.createObjectURL(blob);
+  var w    = window.open(url, '_blank');
+  if (!w) {
+    toast('Habilite popups para imprimir!', 'err');
+  } else {
+    setTimeout(function() { w.print(); URL.revokeObjectURL(url); }, 600);
+  }
 }
 
 function exportarCSV() {
