@@ -312,6 +312,9 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 .he50-pill{background:#FFF3E0;color:#E65100;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;display:inline-block;}
 .he100-pill{background:#FCE4EC;color:#880E4F;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;display:inline-block;}
 .he-norm-pill{background:#FFF8E1;color:#F57F17;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;display:inline-block;}
+.he-not-pill{background:#EDE7F6;color:#4527A0;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;display:inline-block;}
+.col-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;}
+@media(max-width:540px){.col-stats{grid-template-columns:repeat(2,1fr);}}
 /* V6 - CONSOLIDADO ADMIN */
 .consolidado-card{background:white;border-radius:var(--r);border:1px solid var(--cb);margin-bottom:20px;box-shadow:var(--sh);overflow:hidden;}
 .consolidado-head{padding:13px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;background:#FAFAF8;}
@@ -2037,7 +2040,7 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
   });
   meus.sort(function(a,b){ return a.reg.data > b.reg.data ? 1 : -1; });
 
-  var totHe50 = 0, totHe100 = 0, totalDias = meus.length;
+  var totHe50 = 0, totHe100 = 0, totHeNot = 0, totHeDiu = 0, totalDias = meus.length;
   var rows = '';
   meus.forEach(function(m) {
     var r = m.reg, f = m.func;
@@ -2045,9 +2048,8 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
     var ab = f.abono || 'Trabalhou';
     var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
     var uf = obraObj ? (obraObj.uf || '') : '';
-    var tipo = tipoDia(r.data, uf);
     if (ab !== 'Trabalhou') {
-      rows += '<tr><td>' + dt + '</td><td>' + r.local + '</td><td colspan="4" style="text-align:center;color:#999;">' + ab + '</td></tr>';
+      rows += '<tr><td>' + dt + '</td><td>' + r.local + '</td><td colspan="5" style="text-align:center;color:#999;">' + ab + '</td></tr>';
       return;
     }
     var temRef = f.refeicao !== undefined ? f.refeicao : true;
@@ -2056,25 +2058,29 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
     var heCell = '-';
     if (jor.adPerc === 50)  { totHe50  += jor.liquido; heCell = minToStr(jor.liquido) + ' (50%)'; }
     if (jor.adPerc === 100) { totHe100 += jor.liquido; heCell = minToStr(jor.liquido) + ' (100%)'; }
+    var notCell = '-', diuCell = '-';
+    if (jor.heNot > 0) { totHeNot += jor.heNot; notCell = '+' + minToStr(Math.round(jor.heNot)); }
+    if (jor.heDiu > 0 && jor.tipo === 'normal') { totHeDiu += jor.heDiu; diuCell = '+' + minToStr(Math.round(jor.heDiu)); }
     rows += '<tr>'
       + '<td>' + dt + '</td>'
       + '<td>' + r.local + '</td>'
       + '<td style="text-align:center;">' + (f.entrada||'-') + '</td>'
       + '<td style="text-align:center;">' + (f.saida||'-') + '</td>'
       + '<td style="text-align:center;font-weight:700;">' + minToStr(jor.liquido) + '</td>'
+      + '<td style="text-align:center;color:#4527A0;font-weight:700;">' + notCell + '</td>'
       + '<td style="text-align:center;color:#E65100;font-weight:700;">' + heCell + '</td>'
       + '</tr>';
   });
 
+  var totStr = [];
+  if (totHeNot > 0) totStr.push('HE Not: ' + minToStr(Math.round(totHeNot)));
+  if (totHeDiu > 0) totStr.push('HE Diu: ' + minToStr(Math.round(totHeDiu)));
+  if (totHe50  > 0) totStr.push('HE 50%: ' + minToStr(Math.round(totHe50)));
+  if (totHe100 > 0) totStr.push('HE 100%: ' + minToStr(Math.round(totHe100)));
   var sumRow = '<tr style="background:#FEF3DC;font-weight:700;">'
-    + '<td colspan="4">TOTAIS — ' + totalDias + ' dia(s)</td>'
-    + '<td style="text-align:center;">-</td>'
-    + '<td style="text-align:center;color:#E65100;">'
-    + (totHe50 > 0 ? 'HE 50%: ' + minToStr(Math.round(totHe50)) : '')
-    + (totHe50 > 0 && totHe100 > 0 ? ' | ' : '')
-    + (totHe100 > 0 ? 'HE 100%: ' + minToStr(Math.round(totHe100)) : '')
-    + (totHe50 === 0 && totHe100 === 0 ? '-' : '')
-    + '</td></tr>';
+    + '<td colspan="5">TOTAIS — ' + totalDias + ' dia(s)</td>'
+    + '<td colspan="2" style="text-align:center;color:#333;">' + (totStr.join(' &nbsp;|&nbsp; ') || '-') + '</td>'
+    + '</tr>';
 
   var styleStr = 'body{font-family:sans-serif;padding:28px;color:#222;font-size:13px;}'
     + 'h1{font-size:18px;margin-bottom:2px;}h2{font-size:14px;font-weight:normal;color:#666;margin-bottom:16px;}'
@@ -2088,7 +2094,8 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
     + '<table><thead><tr>'
     + '<th>Data</th><th>Obra</th><th style="text-align:center;">Entrada</th>'
     + '<th style="text-align:center;">Saida</th><th style="text-align:center;">H. Liquida</th>'
-    + '<th style="text-align:center;">HE</th>'
+    + '<th style="text-align:center;color:#4527A0;">HE Not.</th>'
+    + '<th style="text-align:center;color:#E65100;">HE</th>'
     + '</tr></thead><tbody>' + rows + sumRow + '</tbody></table>'
     + '<p class="foot">Gerado em ' + new Date().toLocaleString('pt-BR') + ' | FORTE Sistema</p>';
   var htmlCompleto = '<html><head><title>Resumo ' + funcNome + '</title><style>' + styleStr + '</style></head><body>' + bodyStr + '</body></html>';
@@ -2892,8 +2899,9 @@ function renderResumoColab() {
   // Stats
   var totalDias  = meus.length;
   var totalAbono = meus.filter(function(m){ return (m.func.abono || 'Trabalhou') !== 'Trabalhou'; }).length;
-  var totalHe50  = 0; // HE dias normais (além de 8h48) + HE sábado (adPerc=50)
-  var totalHe100 = 0; // HE dom/feriado (adPerc=100)
+  var totalHe50  = 0;
+  var totalHe100 = 0;
+  var totalHeNot = 0; // HE noturna acumulada (dias normais)
   meus.forEach(function(m) {
     if ((m.func.abono || 'Trabalhou') !== 'Trabalhou') return;
     var obraObj = getObras().find(function(o){ return String(o.id) === String(m.reg.obraId); });
@@ -2901,14 +2909,16 @@ function renderResumoColab() {
     var temRef = m.func.refeicao !== undefined ? m.func.refeicao : true;
     var jor = calcJornada(m.func.entrada, m.func.saida, m.reg.data, temRef, uf);
     if (!jor) return;
-    if (jor.adPerc === 50)      totalHe50  += (jor.liquido || 0);
-    if (jor.adPerc === 100)     totalHe100 += (jor.liquido || 0);
+    if (jor.adPerc === 50)  totalHe50  += (jor.liquido || 0);
+    if (jor.adPerc === 100) totalHe100 += (jor.liquido || 0);
+    if (jor.heNot > 0)      totalHeNot += jor.heNot;
   });
   document.getElementById('col-stats').innerHTML =
     '<div class="col-stat"><div class="col-stat-num">' + totalDias + '</div><div class="col-stat-lbl">Registros</div></div>' +
     '<div class="col-stat"><div class="col-stat-num">' + totalAbono + '</div><div class="col-stat-lbl">Abonos</div></div>' +
-    '<div class="col-stat"><div class="col-stat-num" style="color:#E65100;">' + (totalHe50 > 0 ? minToStr(totalHe50) : '-') + '</div><div class="col-stat-lbl">HE 50%</div></div>' +
-    '<div class="col-stat"><div class="col-stat-num" style="color:#880E4F;">' + (totalHe100 > 0 ? minToStr(totalHe100) : '-') + '</div><div class="col-stat-lbl">HE 100%</div></div>';
+    '<div class="col-stat"><div class="col-stat-num" style="color:#E65100;">' + (totalHe50  > 0 ? minToStr(Math.round(totalHe50))  : '-') + '</div><div class="col-stat-lbl">HE 50%</div></div>' +
+    '<div class="col-stat"><div class="col-stat-num" style="color:#880E4F;">' + (totalHe100 > 0 ? minToStr(Math.round(totalHe100)) : '-') + '</div><div class="col-stat-lbl">HE 100%</div></div>' +
+    '<div class="col-stat"><div class="col-stat-num" style="color:#4527A0;">' + (totalHeNot > 0 ? minToStr(Math.round(totalHeNot)) : '-') + '</div><div class="col-stat-lbl">HE Not.</div></div>';
 
   // CARD DE FALTAS — dias úteis do mês/ano selecionado sem registro
   var wrapFaltas = document.getElementById('col-faltas-wrap');
@@ -3053,6 +3063,12 @@ function renderResumoColab() {
           + '<div class="col-detalhe-item"><div class="col-detalhe-lbl">H. Liquida</div><div class="col-detalhe-val">' + (jor ? minToStr(jor.liquido) : '-') + '</div></div>'
           + (jor && jor.tipo === 'normal' && jor.extra > 0 && sessao.tipo === 'admin'
               ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">HE Dia Normal</div><div class="col-detalhe-val"><span class="he-norm-pill">+' + minToStr(jor.extra) + '</span></div></div>'
+              : '')
+          + (jor && jor.heNot > 0
+              ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">HE Noturna</div><div class="col-detalhe-val"><span class="he-not-pill">+' + minToStr(jor.heNot) + '</span></div></div>'
+              : '')
+          + (jor && jor.heDiu > 0 && jor.tipo === 'normal'
+              ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">HE Diurna</div><div class="col-detalhe-val"><span class="he-norm-pill">+' + minToStr(jor.heDiu) + '</span></div></div>'
               : '')
           + (jor && jor.adPerc === 50
               ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">HE 50%</div><div class="col-detalhe-val"><span class="he50-pill">' + minToStr(jor.liquido) + '</span></div></div>'
