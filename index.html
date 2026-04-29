@@ -2040,7 +2040,7 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
   });
   meus.sort(function(a,b){ return a.reg.data > b.reg.data ? 1 : -1; });
 
-  var totHe50 = 0, totHe100 = 0, totHeNot = 0, totHeDiu = 0, totalDias = meus.length;
+  var totHe50 = 0, totHe100 = 0, totAdicNot = 0, totalDias = meus.length;
   var rows = '';
   meus.forEach(function(m) {
     var r = m.reg, f = m.func;
@@ -2049,36 +2049,38 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
     var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
     var uf = obraObj ? (obraObj.uf || '') : '';
     if (ab !== 'Trabalhou') {
-      rows += '<tr><td>' + dt + '</td><td>' + r.local + '</td><td colspan="5" style="text-align:center;color:#999;">' + ab + '</td></tr>';
+      rows += '<tr><td>' + dt + '</td><td>' + r.local + '</td><td colspan="4" style="text-align:center;color:#999;">' + ab + '</td></tr>';
       return;
     }
     var temRef = f.refeicao !== undefined ? f.refeicao : true;
     var jor = calcJornada(f.entrada, f.saida, r.data, temRef, uf);
     if (!jor) return;
+
+    // HE: somente sáb (50%) e dom/feriado (100%) — dias normais não mostram
     var heCell = '-';
-    if (jor.adPerc === 50)  { totHe50  += jor.liquido; heCell = minToStr(jor.liquido) + ' (50%)'; }
-    if (jor.adPerc === 100) { totHe100 += jor.liquido; heCell = minToStr(jor.liquido) + ' (100%)'; }
-    var notCell = '-', diuCell = '-';
-    if (jor.heNot > 0) { totHeNot += jor.heNot; notCell = '+' + minToStr(Math.round(jor.heNot)); }
-    if (jor.heDiu > 0 && jor.tipo === 'normal') { totHeDiu += jor.heDiu; diuCell = '+' + minToStr(Math.round(jor.heDiu)); }
+    if (jor.adPerc === 50)  { totHe50  += jor.liquido; heCell = '<b>' + minToStr(jor.liquido) + '</b> (50%)'; }
+    if (jor.adPerc === 100) { totHe100 += jor.liquido; heCell = '<b>' + minToStr(jor.liquido) + '</b> (100%)'; }
+
+    // Adicional noturno (1/3 das hrs noturnas reais)
+    var adicNotCell = '-';
+    if (jor.adicNot > 0) { totAdicNot += jor.adicNot; adicNotCell = '+' + minToStr(Math.round(jor.adicNot)); }
+
     rows += '<tr>'
       + '<td>' + dt + '</td>'
       + '<td>' + r.local + '</td>'
       + '<td style="text-align:center;">' + (f.entrada||'-') + '</td>'
       + '<td style="text-align:center;">' + (f.saida||'-') + '</td>'
-      + '<td style="text-align:center;font-weight:700;">' + minToStr(jor.liquido) + '</td>'
-      + '<td style="text-align:center;color:#4527A0;font-weight:700;">' + notCell + '</td>'
+      + '<td style="text-align:center;color:#4527A0;font-weight:700;">' + adicNotCell + '</td>'
       + '<td style="text-align:center;color:#E65100;font-weight:700;">' + heCell + '</td>'
       + '</tr>';
   });
 
   var totStr = [];
-  if (totHeNot > 0) totStr.push('HE Not: ' + minToStr(Math.round(totHeNot)));
-  if (totHeDiu > 0) totStr.push('HE Diu: ' + minToStr(Math.round(totHeDiu)));
-  if (totHe50  > 0) totStr.push('HE 50%: ' + minToStr(Math.round(totHe50)));
-  if (totHe100 > 0) totStr.push('HE 100%: ' + minToStr(Math.round(totHe100)));
+  if (totAdicNot > 0) totStr.push('Adic. Not. (1/3): ' + minToStr(Math.round(totAdicNot)));
+  if (totHe50    > 0) totStr.push('HE 50%: '           + minToStr(Math.round(totHe50)));
+  if (totHe100   > 0) totStr.push('HE 100%: '          + minToStr(Math.round(totHe100)));
   var sumRow = '<tr style="background:#FEF3DC;font-weight:700;">'
-    + '<td colspan="5">TOTAIS — ' + totalDias + ' dia(s)</td>'
+    + '<td colspan="4">TOTAIS — ' + totalDias + ' dia(s)</td>'
     + '<td colspan="2" style="text-align:center;color:#333;">' + (totStr.join(' &nbsp;|&nbsp; ') || '-') + '</td>'
     + '</tr>';
 
@@ -2092,9 +2094,10 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
   var bodyStr = '<h1>Resumo de Apontamentos — FORTE</h1>'
     + '<h2>' + funcNome + ' &nbsp;|&nbsp; ' + mesNome + '/' + fAno + '</h2>'
     + '<table><thead><tr>'
-    + '<th>Data</th><th>Obra</th><th style="text-align:center;">Entrada</th>'
-    + '<th style="text-align:center;">Saida</th><th style="text-align:center;">H. Liquida</th>'
-    + '<th style="text-align:center;color:#4527A0;">HE Not.</th>'
+    + '<th>Data</th><th>Obra</th>'
+    + '<th style="text-align:center;">Entrada</th>'
+    + '<th style="text-align:center;">Saida</th>'
+    + '<th style="text-align:center;color:#4527A0;">Adic. Not. (1/3)</th>'
     + '<th style="text-align:center;color:#E65100;">HE</th>'
     + '</tr></thead><tbody>' + rows + sumRow + '</tbody></table>'
     + '<p class="foot">Gerado em ' + new Date().toLocaleString('pt-BR') + ' | FORTE Sistema</p>';
