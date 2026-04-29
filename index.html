@@ -1067,6 +1067,34 @@ function calcHENoturna(inicioHE, fimReal) {
   return { heNot: heNot, heDiu: heDiu };
 }
 
+/* Conta minutos reais dentro do periodo noturno (22h-05h), excluindo refeicao */
+function calcHorasNot(entMin, saiMin, temRefeicao) {
+  if (saiMin <= entMin) saiMin += 1440;
+  var blocos = temRefeicao
+    ? [[entMin, entMin + GATILHO_REF], [entMin + GATILHO_REF + REFEICAO_MIN, saiMin]]
+    : [[entMin, saiMin]];
+  var total = 0;
+  blocos.forEach(function(b) {
+    var cursor = b[0], fim = b[1];
+    while (cursor < fim) {
+      var mDia = cursor % 1440;
+      var eNot = (mDia >= NOT_INICIO) || (mDia < NOT_FIM);
+      var prox;
+      if (eNot) {
+        if (mDia >= NOT_INICIO) prox = Math.min(fim, Math.floor(cursor/1440)*1440 + 1440 + NOT_FIM);
+        else                    prox = Math.min(fim, Math.floor(cursor/1440)*1440 + NOT_FIM);
+      } else {
+        var p22 = Math.floor(cursor/1440)*1440 + NOT_INICIO;
+        if (p22 <= cursor) p22 += 1440;
+        prox = Math.min(fim, p22);
+      }
+      if (eNot) total += prox - cursor;
+      cursor = prox;
+    }
+  });
+  return total;
+}
+
 function calcJornada(entrada, saida, dataStr, temRefeicao, ufObra) {
   if (!entrada || !saida) return null;
   var ep = entrada.split(':').map(Number);
@@ -1157,20 +1185,25 @@ function calcJornada(entrada, saida, dataStr, temRefeicao, ufObra) {
       normal: normal,
       extra: extraTotal,
       heNot: heNot, heDiu: heDiu,
+      hrsNot: Math.round(calcHorasNot(entMin, saiMin, temRefeicao)),
+      adicNot: Math.round(calcHorasNot(entMin, saiMin, temRefeicao) / 3),
       temRefeicao: temRefeicao, refHorario: refHorario,
       tipo: tipo, adPerc: 0, adHoras: 0,
       modoNoturno: creditoTotal !== bruto - (temRefeicao ? REFEICAO_MIN : 0)
     };
 
   } else {
-    // Sabado / Domingo / Feriado - sem fator noturno na jornada, so adicional
+    // Sabado / Domingo / Feriado
     var liquido = bruto - (temRefeicao ? REFEICAO_MIN : 0);
     var adPerc  = (tipo === 'sabado') ? 50 : 100;
     var adHoras = Math.round(liquido * adPerc / 100);
+    var hrsNotFds = Math.round(calcHorasNot(entMin, saiMin, temRefeicao));
     return {
       bruto: bruto, liquido: liquido,
       normal: liquido, extra: 0,
       heNot: 0, heDiu: 0,
+      hrsNot: hrsNotFds,
+      adicNot: Math.round(hrsNotFds / 3),
       temRefeicao: temRefeicao, refHorario: refHorario,
       tipo: tipo, adPerc: adPerc, adHoras: adHoras,
       modoNoturno: false
