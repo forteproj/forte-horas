@@ -2106,12 +2106,30 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
   });
 
   var totStr = [];
-  if (totAdicNot > 0) totStr.push('Adic. Not. (1/3): ' + minToStr(Math.round(totAdicNot)));
+  if (totAdicNot > 0) totStr.push('Adicional Noturno: ' + minToStr(Math.round(totAdicNot)));
   if (totHe50    > 0) totStr.push('HE 50%: '           + minToStr(Math.round(totHe50)));
   if (totHe100   > 0) totStr.push('HE 100%: '          + minToStr(Math.round(totHe100)));
+
+  // Conta dias de abono (chuva, folga, etc)
+  var diasAbono = {};
+  meus.forEach(function(m) {
+    var ab = m.func.abono || 'Trabalhou';
+    if (ab !== 'Trabalhou') {
+      diasAbono[ab] = (diasAbono[ab] || 0) + 1;
+    }
+  });
+  var abonoStr = Object.keys(diasAbono).map(function(k) {
+    return k + ': ' + diasAbono[k] + ' dia(s)';
+  }).join(' | ');
+
+  var totLinhas = totStr.map(function(t) {
+    return '<div style="margin:2px 0;">' + t + '</div>';
+  }).join('');
+  if (abonoStr) totLinhas += '<div style="margin:2px 0;color:#666;">' + abonoStr + '</div>';
+
   var sumRow = '<tr style="background:#FEF3DC;font-weight:700;">'
     + '<td colspan="4">TOTAIS — ' + totalDias + ' dia(s)</td>'
-    + '<td colspan="2" style="text-align:center;color:#333;">' + (totStr.join(' &nbsp;|&nbsp; ') || '-') + '</td>'
+    + '<td colspan="2" style="color:#333;line-height:1.8;">' + (totLinhas || '-') + '</td>'
     + '</tr>';
 
   var styleStr = 'body{font-family:sans-serif;padding:28px;color:#222;font-size:13px;}'
