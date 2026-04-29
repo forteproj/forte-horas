@@ -2105,50 +2105,95 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
       + '</tr>';
   });
 
+  // Calcula dias sem registro no mês
+  var anoFil = parseInt(fAno), mesFil = parseInt(fMes);
+  var primeiroDia = new Date(anoFil, mesFil - 1, 1);
+  var ultimoDia   = new Date(anoFil, mesFil, 0);
+  var hojeStr2    = new Date().getFullYear() + '-'
+    + String(new Date().getMonth()+1).padStart(2,'0') + '-'
+    + String(new Date().getDate()).padStart(2,'0');
+  var diasComReg2 = {};
+  meus.forEach(function(m) { diasComReg2[m.reg.data] = true; });
+  var diasSemReg = [];
+  for (var di = new Date(primeiroDia); di <= ultimoDia; di.setDate(di.getDate()+1)) {
+    var dStr = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
+    if (dStr >= hojeStr2) break;
+    if (!diasComReg2[dStr]) diasSemReg.push(dStr);
+  }
+
   var totStr = [];
   if (totAdicNot > 0) totStr.push('Adicional Noturno: ' + minToStr(Math.round(totAdicNot)));
   if (totHe50    > 0) totStr.push('HE 50%: '           + minToStr(Math.round(totHe50)));
   if (totHe100   > 0) totStr.push('HE 100%: '          + minToStr(Math.round(totHe100)));
+  totStr.push('Dias sem registro: ' + diasSemReg.length);
 
-  // Conta dias de abono (chuva, folga, etc)
+  // Abonos por tipo
   var diasAbono = {};
   meus.forEach(function(m) {
     var ab = m.func.abono || 'Trabalhou';
-    if (ab !== 'Trabalhou') {
-      diasAbono[ab] = (diasAbono[ab] || 0) + 1;
-    }
+    if (ab !== 'Trabalhou') diasAbono[ab] = (diasAbono[ab] || 0) + 1;
   });
-  var abonoStr = Object.keys(diasAbono).map(function(k) {
-    return k + ': ' + diasAbono[k] + ' dia(s)';
-  }).join(' | ');
+  Object.keys(diasAbono).forEach(function(k) {
+    totStr.push(k + ': ' + diasAbono[k] + ' dia(s)');
+  });
 
   var totLinhas = totStr.map(function(t) {
-    return '<div style="margin:2px 0;">' + t + '</div>';
+    return '<div style="margin:1px 0;">' + t + '</div>';
   }).join('');
-  if (abonoStr) totLinhas += '<div style="margin:2px 0;color:#666;">' + abonoStr + '</div>';
 
   var sumRow = '<tr style="background:#FEF3DC;font-weight:700;">'
-    + '<td colspan="4">TOTAIS — ' + totalDias + ' dia(s)</td>'
-    + '<td colspan="2" style="color:#333;line-height:1.8;">' + (totLinhas || '-') + '</td>'
+    + '<td colspan="4" style="font-size:10px;">RESUMO DO MÊS</td>'
+    + '<td colspan="2" style="color:#333;line-height:1.7;font-size:10px;">' + (totLinhas || '-') + '</td>'
     + '</tr>';
 
-  var styleStr = 'body{font-family:sans-serif;padding:28px;color:#222;font-size:13px;}'
-    + 'h1{font-size:18px;margin-bottom:2px;}h2{font-size:14px;font-weight:normal;color:#666;margin-bottom:16px;}'
-    + 'table{width:100%;border-collapse:collapse;margin-top:12px;}'
-    + 'th{background:#F5A623;padding:7px 8px;border:1px solid #ddd;text-align:left;font-size:11px;}'
-    + 'td{padding:6px 8px;border:1px solid #ddd;font-size:12px;}'
-    + 'tr:nth-child(even){background:#FAFAF8;}'
-    + '.foot{margin-top:20px;font-size:10px;color:#aaa;}';
-  var bodyStr = '<h1>Resumo de Apontamentos — FORTE</h1>'
-    + '<h2>' + funcNome + ' &nbsp;|&nbsp; ' + mesNome + '/' + fAno + '</h2>'
+  // CSS compacto para caber 31 linhas em A4
+  var styleStr = ''
+    + '@page{size:A4 portrait;margin:12mm 10mm 12mm 10mm;}'
+    + '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
+    + 'body{font-family:Arial,sans-serif;color:#222;font-size:9px;margin:0;padding:0;}'
+    + '.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;border-bottom:2px solid #F5A623;padding-bottom:6px;}'
+    + '.header-left h1{font-size:13px;margin:0 0 2px 0;color:#1E1C18;}'
+    + '.header-left h2{font-size:9px;font-weight:normal;color:#666;margin:0;}'
+    + '.header-right{font-size:8px;color:#999;text-align:right;}'
+    + 'table{width:100%;border-collapse:collapse;margin-top:4px;}'
+    + 'th{background:#F5A623;padding:4px 5px;border:1px solid #ddd;text-align:left;font-size:8px;font-weight:700;}'
+    + 'td{padding:3px 5px;border:1px solid #eee;font-size:8.5px;vertical-align:middle;}'
+    + 'tr:nth-child(even) td{background:#FAFAF8;}'
+    + 'tr:last-child td{border-bottom:1px solid #ddd;}'
+    + '.foot{margin-top:10px;font-size:7px;color:#aaa;text-align:right;}'
+    + '.docsign{margin-top:14px;border-top:1px dashed #ccc;padding-top:10px;display:flex;justify-content:space-between;align-items:flex-end;}'
+    + '.docsign-box{text-align:center;}'
+    + '.docsign-line{border-bottom:1px solid #333;width:220px;margin-bottom:3px;height:28px;}'
+    + '.docsign-lbl{font-size:8px;color:#666;}'
+    + '.docsign-nome{font-size:8px;font-weight:700;color:#333;margin-top:2px;}';
+
+  var bodyStr = ''
+    + '<div class="header">'
+    + '<div class="header-left">'
+    + '<h1>Resumo de Apontamentos — FORTE</h1>'
+    + '<h2>' + funcNome + ' &nbsp;|&nbsp; ' + mesNome + ' / ' + fAno + '</h2>'
+    + '</div>'
+    + '<div class="header-right">Gerado em ' + new Date().toLocaleDateString('pt-BR') + '</div>'
+    + '</div>'
     + '<table><thead><tr>'
     + '<th>Data</th><th>Obra</th>'
     + '<th style="text-align:center;">Entrada</th>'
-    + '<th style="text-align:center;">Saida</th>'
-    + '<th style="text-align:center;color:#4527A0;">Adicional Noturno</th>'
+    + '<th style="text-align:center;">Saída</th>'
+    + '<th style="text-align:center;color:#4527A0;">Adic. Noturno</th>'
     + '<th style="text-align:center;color:#E65100;">HE</th>'
     + '</tr></thead><tbody>' + rows + sumRow + '</tbody></table>'
-    + '<p class="foot">Gerado em ' + new Date().toLocaleString('pt-BR') + ' | FORTE Sistema</p>';
+    + '<div class="docsign">'
+    + '<div class="docsign-box">'
+    + '<div class="docsign-line"></div>'
+    + '<div class="docsign-lbl">Assinatura Digital — DocuSign</div>'
+    + '<div class="docsign-nome">' + funcNome + '</div>'
+    + '</div>'
+    + '<div class="docsign-box" style="text-align:right;">'
+    + '<div class="docsign-lbl" style="margin-bottom:4px;">Data de assinatura:</div>'
+    + '<div class="docsign-lbl">_____ / _____ / _________</div>'
+    + '</div>'
+    + '</div>'
+    + '<p class="foot">FORTE Sistema | Documento gerado automaticamente</p>';
   var htmlCompleto = '<html><head><title>Resumo ' + funcNome + '</title><style>' + styleStr + '</style></head><body>' + bodyStr + '</body></html>';
   var blob = new Blob([htmlCompleto], { type: 'text/html;charset=utf-8' });
   var url  = URL.createObjectURL(blob);
