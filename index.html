@@ -696,6 +696,10 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
       <div class="modal-toggle-lbl">Funcionario Ativo</div>
       <label class="toggle t-green"><input type="checkbox" id="mf-ativo" checked /><span class="tslider"></span></label>
     </div>
+    <div class="modal-toggle-row">
+      <div class="modal-toggle-lbl">Recebe Adicional Noturno</div>
+      <label class="toggle t-green"><input type="checkbox" id="mf-adicnot" checked /><span class="tslider"></span></label>
+    </div>
     <div class="modal-btns">
       <button class="m-cancel" data-close="modal-func">Cancelar</button>
       <button class="m-ok" id="btn-salvar-func">Salvar</button>
@@ -1095,7 +1099,13 @@ function calcHorasNot(entMin, saiMin, temRefeicao) {
   return total;
 }
 
-function calcJornada(entrada, saida, dataStr, temRefeicao, ufObra) {
+/* Retorna se o funcionario recebe adicional noturno (default: true) */
+function getFuncAdicNot(nome) {
+  var f = getFuncs().find(function(x) { return x.nome === nome; });
+  return f ? (f.adicNot !== false) : true;
+}
+
+function calcJornada(entrada, saida, dataStr, temRefeicao, ufObra, funcAdicNot) {
   if (!entrada || !saida) return null;
   var ep = entrada.split(':').map(Number);
   var sp = saida.split(':').map(Number);
@@ -1187,7 +1197,7 @@ function calcJornada(entrada, saida, dataStr, temRefeicao, ufObra) {
       extra: extraTotal,
       heNot: heNot, heDiu: heDiu,
       hrsNot: Math.round(calcHorasNot(entMin, saiMin, temRefeicao)),
-      adicNot: Math.round(calcHorasNot(entMin, saiMin, temRefeicao) / 3),
+      adicNot: funcAdicNot === false ? 0 : Math.round(calcHorasNot(entMin, saiMin, temRefeicao) / 3),
       temRefeicao: temRefeicao, refHorario: refHorario,
       tipo: tipo, adPerc: 0, adHoras: 0,
       modoNoturno: creditoTotal !== bruto - (temRefeicao ? REFEICAO_MIN : 0)
@@ -1204,7 +1214,7 @@ function calcJornada(entrada, saida, dataStr, temRefeicao, ufObra) {
       normal: liquido, extra: 0,
       heNot: 0, heDiu: 0,
       hrsNot: hrsNotFds,
-      adicNot: Math.round(hrsNotFds / 3),
+      adicNot: funcAdicNot === false ? 0 : Math.round(hrsNotFds / 3),
       temRefeicao: temRefeicao, refHorario: refHorario,
       tipo: tipo, adPerc: adPerc, adHoras: adHoras,
       modoNoturno: false
@@ -1771,7 +1781,7 @@ function renderHist() {
           mapa[f.nome].dias++;
           if (ab2 !== 'Trabalhou') { mapa[f.nome].abonos++; return; }
           var temRef2 = f.refeicao !== undefined ? f.refeicao : true;
-          var jor2 = calcJornada(f.entrada, f.saida, r.data, temRef2, uf2);
+          var jor2 = calcJornada(f.entrada, f.saida, r.data, temRef2, uf2, getFuncAdicNot(f.nome));
           if (!jor2) return;
           mapa[f.nome].normal += jor2.normal || 0;
           if (jor2.tipo === 'normal') mapa[f.nome].he50  += (jor2.extra   || 0);
@@ -1842,7 +1852,7 @@ function renderHist() {
         return;
       }
       var temRef = f.refeicao !== undefined ? f.refeicao : true;
-      var jor = calcJornada(f.entrada, f.saida, r.data, temRef, ufObra);
+      var jor = calcJornada(f.entrada, f.saida, r.data, temRef, ufObra, getFuncAdicNot(f.nome));
       if (!jor) {
         fRows += '<tr><td>' + f.nome + '</td><td colspan="6" class="dim">-</td></tr>';
         return;
@@ -2014,7 +2024,7 @@ function imprimir(id) {
       return;
     }
     var temRef = f.refeicao !== undefined ? f.refeicao : true;
-    var jor = calcJornada(f.entrada, f.saida, r.data, temRef, ufObra);
+    var jor = calcJornada(f.entrada, f.saida, r.data, temRef, ufObra, getFuncAdicNot(f.nome));
     if (!jor) return;
     qtdTrab++; totLiq += jor.liquido; totExtra += (jor.extra||0); totAdic += (jor.adHoras||0);
     var heStr = '';
@@ -2083,7 +2093,7 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
       return;
     }
     var temRef = f.refeicao !== undefined ? f.refeicao : true;
-    var jor = calcJornada(f.entrada, f.saida, r.data, temRef, uf);
+    var jor = calcJornada(f.entrada, f.saida, r.data, temRef, uf, getFuncAdicNot(f.nome));
     if (!jor) return;
 
     // HE: somente sáb (50%) e dom/feriado (100%) — dias normais não mostram
@@ -2185,12 +2195,13 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
     + '<div class="docsign">'
     + '<div class="docsign-box">'
     + '<div class="docsign-line"></div>'
-    + '<div class="docsign-lbl">Assinatura Digital — DocuSign</div>'
+    + '<div class="docsign-lbl">Assinatura do Colaborador</div>'
     + '<div class="docsign-nome">' + funcNome + '</div>'
     + '</div>'
-    + '<div class="docsign-box" style="text-align:right;">'
-    + '<div class="docsign-lbl" style="margin-bottom:4px;">Data de assinatura:</div>'
-    + '<div class="docsign-lbl">_____ / _____ / _________</div>'
+    + '<div class="docsign-box">'
+    + '<div class="docsign-line"></div>'
+    + '<div class="docsign-lbl">Assinatura FORTE</div>'
+    + '<div class="docsign-nome">Responsavel</div>'
     + '</div>'
     + '</div>'
     + '<p class="foot">FORTE Sistema | Documento gerado automaticamente</p>';
@@ -2238,7 +2249,7 @@ function exportarCSV() {
         return;
       }
       var temRef = f.refeicao !== undefined ? f.refeicao : true;
-      var jor = calcJornada(f.entrada, f.saida, r.data, temRef, ufObra);
+      var jor = calcJornada(f.entrada, f.saida, r.data, temRef, ufObra, getFuncAdicNot(f.nome));
       if (!jor) { lines.push([r.data, diaNome, r.encNome||'', r.local, r.placa||'', r.abonoEq?'Sim':'Nao', r.abonoMotivo||'', f.nome, f.entrada, f.saida, '', '', '', '', '', '', '', 'Trabalhou', r.obs||'']); return; }
       lines.push([r.data, diaNome, r.encNome||'', r.local, r.placa||'',
         r.abonoEq?'Sim':'Nao', r.abonoMotivo||'', f.nome, f.entrada, f.saida,
@@ -2642,8 +2653,12 @@ function renderFuncs() {
   if (!funcs.length) { el.innerHTML = '<div class="empty"><div class="ico">-</div><p>Nenhum funcionario cadastrado.</p></div>'; return; }
   var html = '';
   funcs.forEach(function(f) {
+    var adicNotBadge = f.adicNot === false
+      ? '<span class="status-pill" style="background:#EDE7F6;color:#4527A0;border:1px solid #B39DDB;">Sem A.Not.</span>'
+      : '';
     html += '<div class="cad-item">'
       + '<div class="cad-info"><div class="cad-nome">' + f.nome + '</div>' + (f.funcao ? '<div class="cad-sub">' + f.funcao + '</div>' : '') + '</div>'
+      + adicNotBadge
       + '<span class="status-pill ' + (f.ativo ? 'pill-on' : 'pill-off') + '">' + (f.ativo ? 'Ativo' : 'Inativo') + '</span>'
       + '<div class="cad-actions">'
       + '<button class="btn-edit" data-edit-func="' + f.id + '">Editar</button>'
@@ -2667,22 +2682,24 @@ function abrirModalFunc(id) {
   var f = id ? getFuncs().find(function(x) { return x.id === id; }) : null;
   document.getElementById('mf-title').textContent = f ? 'Editar Funcionario' : 'Novo Funcionario';
   document.getElementById('mf-id').value     = f ? f.id : '';
-  document.getElementById('mf-nome').value   = f ? f.nome : '';
-  document.getElementById('mf-funcao').value = f ? (f.funcao || '') : '';
-  document.getElementById('mf-ativo').checked = f ? f.ativo : true;
+  document.getElementById('mf-nome').value    = f ? f.nome : '';
+  document.getElementById('mf-funcao').value  = f ? (f.funcao || '') : '';
+  document.getElementById('mf-ativo').checked  = f ? f.ativo : true;
+  document.getElementById('mf-adicnot').checked = f ? (f.adicNot !== false) : true;
   abrirModal('modal-func');
 }
 
 function salvarFunc() {
-  var nome  = document.getElementById('mf-nome').value.trim();
-  var funcao= document.getElementById('mf-funcao').value.trim();
-  var ativo = document.getElementById('mf-ativo').checked;
-  var idVal = document.getElementById('mf-id').value;
+  var nome   = document.getElementById('mf-nome').value.trim();
+  var funcao = document.getElementById('mf-funcao').value.trim();
+  var ativo  = document.getElementById('mf-ativo').checked;
+  var adicNot = document.getElementById('mf-adicnot').checked;
+  var idVal  = document.getElementById('mf-id').value;
   if (!nome) { toast('Informe o nome!', 'err'); return; }
   var funcs = getFuncs();
   if (idVal) {
-    for (var i = 0; i < funcs.length; i++) { if (String(funcs[i].id) === String(idVal)) { funcs[i] = Object.assign({}, funcs[i], { nome: nome, funcao: funcao, ativo: ativo }); break; } }
-  } else { funcs.push({ id: Date.now(), nome: nome, funcao: funcao, ativo: ativo }); }
+    for (var i = 0; i < funcs.length; i++) { if (String(funcs[i].id) === String(idVal)) { funcs[i] = Object.assign({}, funcs[i], { nome: nome, funcao: funcao, ativo: ativo, adicNot: adicNot }); break; } }
+  } else { funcs.push({ id: Date.now(), nome: nome, funcao: funcao, ativo: ativo, adicNot: adicNot }); }
   funcs.sort(function(a,b){ return a.nome.localeCompare(b.nome, 'pt-BR'); });
   sset('forte_funcs', funcs);
   fecharModal('modal-func');
@@ -3002,7 +3019,7 @@ function renderResumoColab() {
     var obraObj = getObras().find(function(o){ return String(o.id) === String(m.reg.obraId); });
     var uf = obraObj ? (obraObj.uf || '') : '';
     var temRef = m.func.refeicao !== undefined ? m.func.refeicao : true;
-    var jor = calcJornada(m.func.entrada, m.func.saida, m.reg.data, temRef, uf);
+    var jor = calcJornada(m.func.entrada, m.func.saida, m.reg.data, temRef, uf, getFuncAdicNot(m.func.nome));
     if (!jor) return;
     if (jor.adPerc === 50)  totalHe50  += (jor.liquido || 0);
     if (jor.adPerc === 100) totalHe100 += (jor.liquido || 0);
@@ -3109,7 +3126,7 @@ function renderResumoColab() {
     var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
     var uf = obraObj ? (obraObj.uf || '') : '';
     var temRef = f.refeicao !== undefined ? f.refeicao : true;
-    var jor = ab === 'Trabalhou' ? calcJornada(f.entrada, f.saida, r.data, temRef, uf) : null;
+    var jor = ab === 'Trabalhou' ? calcJornada(f.entrada, f.saida, r.data, temRef, uf, getFuncAdicNot(f.nome)) : null;
     var tipo = tipoDia(r.data, uf);
     var diaClasse = { normal: 'dia-normal', sabado: 'dia-sabado', domingo: 'dia-domingo', feriado: 'dia-feriado' }[tipo] || 'dia-normal';
 
