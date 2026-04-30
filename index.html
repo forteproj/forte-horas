@@ -295,7 +295,18 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 .col-funcao{font-size:13px;color:var(--cm);}
 .col-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
 @media(max-width:500px){.col-stats{grid-template-columns:repeat(2,1fr);}}
-/* V10 - CARD FALTAS */
+/* V17 - BANCO DE HORAS */
+.banco-card{background:white;border-radius:var(--r);border:1px solid var(--cb);margin-bottom:14px;box-shadow:var(--sh);overflow:hidden;}
+.banco-head{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;background:#FAFAF8;border-bottom:1px solid var(--cb);}
+.banco-nome{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#1E1C18;}
+.banco-funcao{font-size:12px;color:var(--cm);margin-top:1px;}
+.banco-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:12px 16px;}
+@media(max-width:600px){.banco-stats{grid-template-columns:repeat(3,1fr);}}
+.banco-stat{text-align:center;}
+.banco-stat-num{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:#1E1C18;}
+.banco-stat-lbl{font-size:10px;color:var(--cm);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+.banco-saldo-pos{color:#2E7D32;}
+.banco-saldo-neg{color:#C62828;}
 .col-faltas-card{background:white;border-radius:var(--r);border:1px solid var(--cb);margin-bottom:16px;box-shadow:var(--sh);overflow:hidden;}
 .col-faltas-head{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;background:#FFF8F0;border-bottom:1px solid #FFCC80;}
 .col-faltas-lbl{font-size:13px;font-weight:700;color:#E65100;display:flex;align-items:center;gap:8px;}
@@ -517,6 +528,7 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
       <button class="adm-tab" data-tab="veiculos">Veiculos</button>
       <button class="adm-tab" data-tab="colabs">Colaboradores</button>
       <button class="adm-tab" data-tab="config">Configuracoes</button>
+      <button class="adm-tab" data-tab="banco">Banco de Horas</button>
     </div>
     <div class="adm-panel active" id="adm-obras">
       <div class="cad-toolbar">
@@ -613,10 +625,17 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
         <button class="btn-save" id="btn-salvar-senha-admin" style="max-width:200px;">Salvar Nova Senha</button>
       </div>
     </div>
-  </div>
-  </div>
 
-  <!-- VIEW RESUMO COLABORADOR -->
+    <div class="adm-panel" id="adm-banco">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+        <select id="banco-mes" style="min-width:130px;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;"></select>
+        <select id="banco-ano" style="min-width:100px;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;"></select>
+        <button class="btn-prim" id="btn-banco-gerar">Gerar</button>
+      </div>
+      <div id="banco-lista"></div>
+    </div>
+  </div>
+  </div>
   <div class="view" id="view-resumo">
   <div class="container">
     <div class="col-header-card" id="col-header-card">
@@ -2080,69 +2099,75 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
   });
   meus.sort(function(a,b){ return a.reg.data > b.reg.data ? 1 : -1; });
 
-  var totHe50 = 0, totHe100 = 0, totAdicNot = 0, totalDias = meus.length;
-  var rows = '';
+  var totHe50 = 0, totHe100 = 0, totAdicNot = 0;
+
+  // Mapa de registros por data
+  var regsPorData = {};
   meus.forEach(function(m) {
-    var r = m.reg, f = m.func;
-    var dt = new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-    var ab = f.abono || 'Trabalhou';
-    var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
-    var uf = obraObj ? (obraObj.uf || '') : '';
-    if (ab !== 'Trabalhou') {
-      rows += '<tr><td>' + dt + '</td><td>' + r.local + '</td><td colspan="4" style="text-align:center;color:#999;">' + ab + '</td></tr>';
-      return;
-    }
-    var temRef = f.refeicao !== undefined ? f.refeicao : true;
-    var jor = calcJornada(f.entrada, f.saida, r.data, temRef, uf, getFuncAdicNot(f.nome));
-    if (!jor) return;
-
-    // HE: somente sáb (50%) e dom/feriado (100%) — dias normais não mostram
-    var heCell = '-';
-    if (jor.adPerc === 50)  { totHe50  += jor.liquido; heCell = '<b>' + minToStr(jor.liquido) + '</b> (50%)'; }
-    if (jor.adPerc === 100) { totHe100 += jor.liquido; heCell = '<b>' + minToStr(jor.liquido) + '</b> (100%)'; }
-
-    // Adicional noturno (1/3 das hrs noturnas reais)
-    var adicNotCell = '-';
-    if (jor.adicNot > 0) { totAdicNot += jor.adicNot; adicNotCell = '+' + minToStr(Math.round(jor.adicNot)); }
-
-    rows += '<tr>'
-      + '<td>' + dt + '</td>'
-      + '<td>' + r.local + '</td>'
-      + '<td style="text-align:center;">' + (f.entrada||'-') + '</td>'
-      + '<td style="text-align:center;">' + (f.saida||'-') + '</td>'
-      + '<td style="text-align:center;color:#4527A0;font-weight:700;">' + adicNotCell + '</td>'
-      + '<td style="text-align:center;color:#E65100;font-weight:700;">' + heCell + '</td>'
-      + '</tr>';
+    if (!regsPorData[m.reg.data]) regsPorData[m.reg.data] = [];
+    regsPorData[m.reg.data].push(m);
   });
 
-  // Calcula dias sem registro no mês
+  // Percorre todos os dias do mês em sequência
   var anoFil = parseInt(fAno), mesFil = parseInt(fMes);
   var primeiroDia = new Date(anoFil, mesFil - 1, 1);
   var ultimoDia   = new Date(anoFil, mesFil, 0);
-  var hojeStr2    = new Date().getFullYear() + '-'
+  var hojeStr2 = new Date().getFullYear() + '-'
     + String(new Date().getMonth()+1).padStart(2,'0') + '-'
     + String(new Date().getDate()).padStart(2,'0');
-  var diasComReg2 = {};
-  meus.forEach(function(m) { diasComReg2[m.reg.data] = true; });
-  var diasSemReg = [];
+
+  var rows = '';
+  var diasSemReg = 0;
+  var diasAbono = {};
+
   for (var di = new Date(primeiroDia); di <= ultimoDia; di.setDate(di.getDate()+1)) {
     var dStr = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
-    if (dStr >= hojeStr2) break;
-    if (!diasComReg2[dStr]) diasSemReg.push(dStr);
+    var dt   = new Date(dStr + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+
+    if (regsPorData[dStr]) {
+      // Dia com registro
+      regsPorData[dStr].forEach(function(m) {
+        var r = m.reg, f = m.func;
+        var ab = f.abono || 'Trabalhou';
+        var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
+        var uf = obraObj ? (obraObj.uf || '') : '';
+        if (ab !== 'Trabalhou') {
+          diasAbono[ab] = (diasAbono[ab] || 0) + 1;
+          rows += '<tr><td>' + dt + '</td><td>' + r.local + '</td>'
+            + '<td colspan="4" style="text-align:center;color:#999;">' + ab + '</td></tr>';
+          return;
+        }
+        var jor = calcJornada(f.entrada, f.saida, r.data, true, uf, getFuncAdicNot(f.nome));
+        if (!jor) return;
+        var heCell = '-';
+        if (jor.adPerc === 50)  { totHe50  += jor.liquido; heCell = '<b>' + minToStr(jor.liquido) + '</b> (50%)'; }
+        if (jor.adPerc === 100) { totHe100 += jor.liquido; heCell = '<b>' + minToStr(jor.liquido) + '</b> (100%)'; }
+        var adicNotCell = '-';
+        if (jor.adicNot > 0) { totAdicNot += jor.adicNot; adicNotCell = '+' + minToStr(Math.round(jor.adicNot)); }
+        rows += '<tr>'
+          + '<td>' + dt + '</td>'
+          + '<td>' + r.local + '</td>'
+          + '<td style="text-align:center;">' + (f.entrada||'-') + '</td>'
+          + '<td style="text-align:center;">' + (f.saida||'-') + '</td>'
+          + '<td style="text-align:center;color:#4527A0;font-weight:700;">' + adicNotCell + '</td>'
+          + '<td style="text-align:center;color:#E65100;font-weight:700;">' + heCell + '</td>'
+          + '</tr>';
+      });
+    } else if (dStr < hojeStr2) {
+      // Dia sem registro (apenas passados)
+      diasSemReg++;
+      rows += '<tr style="background:#FFF0F0;">'
+        + '<td style="color:#C62828;font-weight:700;">' + dt + '</td>'
+        + '<td colspan="5" style="color:#C62828;font-style:italic;">&#9888; Falta de marcacao</td>'
+        + '</tr>';
+    }
   }
 
   var totStr = [];
   if (totAdicNot > 0) totStr.push('Adicional Noturno: ' + minToStr(Math.round(totAdicNot)));
   if (totHe50    > 0) totStr.push('HE 50%: '           + minToStr(Math.round(totHe50)));
   if (totHe100   > 0) totStr.push('HE 100%: '          + minToStr(Math.round(totHe100)));
-  totStr.push('Dias sem registro: ' + diasSemReg.length);
-
-  // Abonos por tipo
-  var diasAbono = {};
-  meus.forEach(function(m) {
-    var ab = m.func.abono || 'Trabalhou';
-    if (ab !== 'Trabalhou') diasAbono[ab] = (diasAbono[ab] || 0) + 1;
-  });
+  totStr.push('Dias sem registro: ' + diasSemReg);
   Object.keys(diasAbono).forEach(function(k) {
     totStr.push(k + ': ' + diasAbono[k] + ' dia(s)');
   });
@@ -2417,6 +2442,119 @@ document.getElementById('btn-salvar-edit-reg').addEventListener('click', functio
   renderHist();
   toast('Registro corrigido!', 'ok');
 });
+
+/* BANCO DE HORAS */
+(function initBancoSelects() {
+  var anoAtual = new Date().getFullYear();
+  var mesAtual = String(new Date().getMonth()+1).padStart(2,'0');
+  var selMes = document.getElementById('banco-mes');
+  var selAno = document.getElementById('banco-ano');
+  var meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  meses.forEach(function(m, i) {
+    var v = String(i+1).padStart(2,'0');
+    selMes.innerHTML += '<option value="' + v + '"' + (v === mesAtual ? ' selected' : '') + '>' + m + '</option>';
+  });
+  for (var y = anoAtual; y >= anoAtual-2; y--) {
+    selAno.innerHTML += '<option value="' + y + '"' + (y === anoAtual ? ' selected' : '') + '>' + y + '</option>';
+  }
+})();
+
+document.getElementById('btn-banco-gerar').addEventListener('click', renderBancoHoras);
+
+function renderBancoHoras() {
+  var fMes = document.getElementById('banco-mes').value;
+  var fAno = document.getElementById('banco-ano').value;
+  var anoN = parseInt(fAno), mesN = parseInt(fMes);
+  var el   = document.getElementById('banco-lista');
+
+  // Calcula dias úteis do mês (seg-sex, excluindo feriados nacionais)
+  var primDia  = new Date(anoN, mesN-1, 1);
+  var ultDia   = new Date(anoN, mesN, 0);
+  var hojeStr  = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0') + '-' + String(new Date().getDate()).padStart(2,'0');
+  var diasUteis = 0;
+  for (var dc = new Date(primDia); dc <= ultDia; dc.setDate(dc.getDate()+1)) {
+    var dow = dc.getDay();
+    if (dow === 0 || dow === 6) continue;
+    var dcs = dc.getFullYear() + '-' + String(dc.getMonth()+1).padStart(2,'0') + '-' + String(dc.getDate()).padStart(2,'0');
+    if (dcs > hojeStr) continue;
+    if (isFeriado(dcs, '')) continue;
+    diasUteis++;
+  }
+  var hEsperadas = diasUteis * JORNADA_MIN; // 8h48 por dia útil
+
+  var allRegs = getRegs().filter(function(r) {
+    if (!r.data) return false;
+    var p = r.data.split('-');
+    return p[0] === fAno && p[1] === fMes;
+  });
+
+  // Monta mapa por funcionário
+  var funcs = getFuncs().filter(function(f){ return f.ativo; });
+  funcs.sort(function(a,b){ return a.nome.localeCompare(b.nome,'pt-BR'); });
+
+  if (!funcs.length) { el.innerHTML = '<div class="empty"><div class="ico">-</div><p>Nenhum funcionario cadastrado.</p></div>'; return; }
+
+  var html = '';
+  funcs.forEach(function(func) {
+    var totalLiq  = 0;
+    var totalHe50 = 0, totalHe100 = 0, totalAdicNot = 0;
+    var diasReg   = 0, diasAbono  = 0;
+
+    allRegs.forEach(function(r) {
+      var dow2 = new Date(r.data + 'T12:00').getDay();
+      r.funcionarios.forEach(function(f) {
+        if (f.nome !== func.nome) return;
+        var ab = f.abono || 'Trabalhou';
+        if (ab !== 'Trabalhou') {
+          // Atestado não desconta; demais abonos descontam do realizado
+          if (ab.toLowerCase().indexOf('atestado') < 0) diasAbono++;
+          return;
+        }
+        if (dow2 === 0 || dow2 === 6) {
+          // Fim de semana: conta HE
+          var jfds = calcJornada(f.entrada, f.saida, r.data, true, '', getFuncAdicNot(f.nome));
+          if (jfds) {
+            if (jfds.adPerc === 50)  totalHe50  += jfds.liquido;
+            if (jfds.adPerc === 100) totalHe100 += jfds.liquido;
+            totalAdicNot += (jfds.adicNot || 0);
+          }
+        } else {
+          // Dia útil: conta horas realizadas
+          var jor = calcJornada(f.entrada, f.saida, r.data, true, '', getFuncAdicNot(f.nome));
+          if (jor) {
+            totalLiq += jor.liquido;
+            totalAdicNot += (jor.adicNot || 0);
+            diasReg++;
+          }
+        }
+      });
+    });
+
+    // Horas esperadas ajustadas por abonos que descontam
+    var hEspAjust = Math.max(0, hEsperadas - (diasAbono * JORNADA_MIN));
+    var saldo     = totalLiq - hEspAjust;
+    var saldoCls  = saldo >= 0 ? 'banco-saldo-pos' : 'banco-saldo-neg';
+    var saldoStr  = (saldo >= 0 ? '+' : '') + minToStr(Math.abs(Math.round(saldo)));
+
+    html += '<div class="banco-card">'
+      + '<div class="banco-head">'
+      + '<div><div class="banco-nome">' + func.nome + '</div>'
+      + (func.funcao ? '<div class="banco-funcao">' + func.funcao + '</div>' : '')
+      + '</div>'
+      + '<span class="status-pill ' + (saldo >= 0 ? 'pill-on' : 'pill-off') + '">' + saldoStr + '</span>'
+      + '</div>'
+      + '<div class="banco-stats">'
+      + '<div class="banco-stat"><div class="banco-stat-num">' + minToStr(Math.round(hEspAjust)) + '</div><div class="banco-stat-lbl">Esperado</div></div>'
+      + '<div class="banco-stat"><div class="banco-stat-num">' + minToStr(Math.round(totalLiq)) + '</div><div class="banco-stat-lbl">Realizado</div></div>'
+      + '<div class="banco-stat"><div class="banco-stat-num ' + saldoCls + '">' + saldoStr + '</div><div class="banco-stat-lbl">Saldo</div></div>'
+      + '<div class="banco-stat"><div class="banco-stat-num" style="color:#E65100;">' + (totalHe50 > 0 ? minToStr(Math.round(totalHe50)) : '-') + '</div><div class="banco-stat-lbl">HE 50%</div></div>'
+      + '<div class="banco-stat"><div class="banco-stat-num" style="color:#880E4F;">' + (totalHe100 > 0 ? minToStr(Math.round(totalHe100)) : '-') + '</div><div class="banco-stat-lbl">HE 100%</div></div>'
+      + '<div class="banco-stat"><div class="banco-stat-num" style="color:#4527A0;">' + (totalAdicNot > 0 ? minToStr(Math.round(totalAdicNot)) : '-') + '</div><div class="banco-stat-lbl">Adic. Not.</div></div>'
+      + '</div></div>';
+  });
+
+  el.innerHTML = html;
+}
 
 /* CONFIGURACOES - SENHA ADMIN */
 document.getElementById('btn-salvar-senha-admin').addEventListener('click', function() {
