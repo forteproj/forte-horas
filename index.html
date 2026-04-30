@@ -2466,21 +2466,20 @@ function renderBancoHoras() {
   var fAno = document.getElementById('banco-ano').value;
   var anoN = parseInt(fAno), mesN = parseInt(fMes);
   var el   = document.getElementById('banco-lista');
+  var mesesNome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-  // Calcula dias úteis do mês (seg-sex, excluindo feriados nacionais)
-  var primDia  = new Date(anoN, mesN-1, 1);
-  var ultDia   = new Date(anoN, mesN, 0);
-  var hojeStr  = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0') + '-' + String(new Date().getDate()).padStart(2,'0');
+  // Dias úteis do mês para h. esperadas
+  var primDia = new Date(anoN, mesN-1, 1);
+  var ultDia  = new Date(anoN, mesN, 0);
+  var hojeStr = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0') + '-' + String(new Date().getDate()).padStart(2,'0');
   var diasUteis = 0;
   for (var dc = new Date(primDia); dc <= ultDia; dc.setDate(dc.getDate()+1)) {
-    var dow = dc.getDay();
-    if (dow === 0 || dow === 6) continue;
+    var dow = dc.getDay(); if (dow === 0 || dow === 6) continue;
     var dcs = dc.getFullYear() + '-' + String(dc.getMonth()+1).padStart(2,'0') + '-' + String(dc.getDate()).padStart(2,'0');
-    if (dcs > hojeStr) continue;
-    if (isFeriado(dcs, '')) continue;
+    if (dcs > hojeStr || isFeriado(dcs,'')) continue;
     diasUteis++;
   }
-  var hEsperadas = diasUteis * JORNADA_MIN; // 8h48 por dia útil
+  var hEsperadas = diasUteis * JORNADA_MIN;
 
   var allRegs = getRegs().filter(function(r) {
     if (!r.data) return false;
@@ -2488,72 +2487,131 @@ function renderBancoHoras() {
     return p[0] === fAno && p[1] === fMes;
   });
 
-  // Monta mapa por funcionário
   var funcs = getFuncs().filter(function(f){ return f.ativo; });
   funcs.sort(function(a,b){ return a.nome.localeCompare(b.nome,'pt-BR'); });
-
   if (!funcs.length) { el.innerHTML = '<div class="empty"><div class="ico">-</div><p>Nenhum funcionario cadastrado.</p></div>'; return; }
 
   var html = '';
-  funcs.forEach(function(func) {
-    var totalLiq  = 0;
-    var totalHe50 = 0, totalHe100 = 0, totalAdicNot = 0;
-    var diasReg   = 0, diasAbono  = 0;
-
+  funcs.forEach(function(func, fi) {
+    // Mapa de registros por data deste funcionário
+    var regsPorData = {};
     allRegs.forEach(function(r) {
-      var dow2 = new Date(r.data + 'T12:00').getDay();
       r.funcionarios.forEach(function(f) {
         if (f.nome !== func.nome) return;
-        var ab = f.abono || 'Trabalhou';
-        if (ab !== 'Trabalhou') {
-          // Atestado não desconta; demais abonos descontam do realizado
-          if (ab.toLowerCase().indexOf('atestado') < 0) diasAbono++;
-          return;
-        }
-        if (dow2 === 0 || dow2 === 6) {
-          // Fim de semana: conta HE
-          var jfds = calcJornada(f.entrada, f.saida, r.data, true, '', getFuncAdicNot(f.nome));
-          if (jfds) {
-            if (jfds.adPerc === 50)  totalHe50  += jfds.liquido;
-            if (jfds.adPerc === 100) totalHe100 += jfds.liquido;
-            totalAdicNot += (jfds.adicNot || 0);
-          }
-        } else {
-          // Dia útil: conta horas realizadas
-          var jor = calcJornada(f.entrada, f.saida, r.data, true, '', getFuncAdicNot(f.nome));
-          if (jor) {
-            totalLiq += jor.liquido;
-            totalAdicNot += (jor.adicNot || 0);
-            diasReg++;
-          }
-        }
+        if (!regsPorData[r.data]) regsPorData[r.data] = [];
+        regsPorData[r.data].push({ reg: r, func: f });
       });
     });
 
-    // Horas esperadas ajustadas por abonos que descontam
-    var hEspAjust = Math.max(0, hEsperadas - (diasAbono * JORNADA_MIN));
+    // Percorre todos os dias do mês
+    var totalLiq = 0, totalHe50 = 0, totalHe100 = 0, totalAdicNot = 0;
+    var diasAbono = 0, diasSemReg = 0;
+    var linhas = '';
+
+    for (var di = new Date(primDia); di <= ultDia; di.setDate(di.getDate()+1)) {
+      var dStr = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
+      var dt   = new Date(dStr+'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      var dow2 = di.getDay();
+      var isFds = (dow2 === 0 || dow2 === 6);
+
+      if (regsPorData[dStr]) {
+        regsPorData[dStr].forEach(function(m) {
+          var f = m.func, r = m.reg;
+          var ab = f.abono || 'Trabalhou';
+          if (ab !== 'Trabalhou') {
+            if (ab.toLowerCase().indexOf('atestado') < 0 && !isFds) diasAbono++;
+            linhas += '<div class="hist-func-row" style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;">'
+              + '<span style="color:var(--cm);">' + dt + '</span>'
+              + '<span>' + r.local + '</span>'
+              + '<span style="color:var(--cm);">-</span><span style="color:var(--cm);">-</span>'
+              + '<span style="color:var(--cm);">-</span>'
+              + '<span><span class="badge b-abono" style="font-size:10px;">' + ab + '</span></span>'
+              + '<span style="color:var(--cm);">-</span>'
+              + '</div>';
+            return;
+          }
+          var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
+          var uf = obraObj ? (obraObj.uf||'') : '';
+          var jor = calcJornada(f.entrada, f.saida, dStr, true, uf, getFuncAdicNot(func.nome));
+          if (!jor) return;
+          if (!isFds) totalLiq += jor.liquido;
+          if (jor.adPerc === 50)  totalHe50  += jor.liquido;
+          if (jor.adPerc === 100) totalHe100 += jor.liquido;
+          totalAdicNot += (jor.adicNot||0);
+          var heStr = jor.adPerc === 50  ? '<span style="color:#E65100;font-weight:700;">' + minToStr(jor.liquido) + ' (50%)</span>'
+                    : jor.adPerc === 100 ? '<span style="color:#880E4F;font-weight:700;">' + minToStr(jor.liquido) + ' (100%)</span>'
+                    : '-';
+          var notStr = jor.adicNot > 0 ? '<span style="color:#4527A0;font-weight:700;">+' + minToStr(Math.round(jor.adicNot)) + '</span>' : '-';
+          var diaStyle = isFds ? 'color:#E65100;' : '';
+          linhas += '<div style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;">'
+            + '<span style="' + diaStyle + '">' + dt + '</span>'
+            + '<span style="color:var(--cm);font-size:11px;">' + r.local + '</span>'
+            + '<span>' + (f.entrada||'-') + '</span>'
+            + '<span>' + (f.saida||'-') + '</span>'
+            + '<span style="font-weight:600;">' + minToStr(jor.liquido) + '</span>'
+            + '<span>' + heStr + '</span>'
+            + '<span>' + notStr + '</span>'
+            + '</div>';
+        });
+      } else if (dStr < hojeStr) {
+        if (!isFds) diasSemReg++;
+        linhas += '<div style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;border-bottom:1px solid #FFCDD2;font-size:12px;align-items:center;background:#FFF8F8;">'
+          + '<span style="color:#C62828;font-weight:700;">' + dt + '</span>'
+          + '<td colspan="6"><span style="color:#C62828;font-style:italic;">&#9888; Sem registro</span></td>'
+          + '</div>';
+      }
+    }
+
+    // Saldo
+    var hEspAjust = Math.max(0, hEsperadas - diasAbono * JORNADA_MIN);
     var saldo     = totalLiq - hEspAjust;
-    var saldoCls  = saldo >= 0 ? 'banco-saldo-pos' : 'banco-saldo-neg';
     var saldoStr  = (saldo >= 0 ? '+' : '') + minToStr(Math.abs(Math.round(saldo)));
+    var saldoCls  = saldo >= 0 ? 'pill-on' : 'pill-off';
+
+    var headId = 'banco-head-' + fi;
+    var bodyId = 'banco-body-' + fi;
 
     html += '<div class="banco-card">'
-      + '<div class="banco-head">'
+      // Cabeçalho clicável
+      + '<div id="' + headId + '" style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:#FAFAF8;border-bottom:1px solid var(--cb);">'
       + '<div><div class="banco-nome">' + func.nome + '</div>'
-      + (func.funcao ? '<div class="banco-funcao">' + func.funcao + '</div>' : '')
+      + (func.funcao ? '<div class="banco-funcao">' + func.funcao + '</div>' : '') + '</div>'
+      + '<div style="display:flex;align-items:center;gap:10px;">'
+      // Stats resumo no cabeçalho
+      + (totalHe50  > 0 ? '<span style="font-size:12px;color:#E65100;font-weight:700;">HE 50%: ' + minToStr(Math.round(totalHe50)) + '</span>' : '')
+      + (totalHe100 > 0 ? '<span style="font-size:12px;color:#880E4F;font-weight:700;">HE 100%: ' + minToStr(Math.round(totalHe100)) + '</span>' : '')
+      + (totalAdicNot > 0 ? '<span style="font-size:12px;color:#4527A0;font-weight:700;">A.Not: ' + minToStr(Math.round(totalAdicNot)) + '</span>' : '')
+      + '<span class="status-pill ' + saldoCls + '">Saldo: ' + saldoStr + '</span>'
+      + '<span class="chev">v</span>'
+      + '</div></div>'
+      // Corpo expansível
+      + '<div id="' + bodyId + '" style="display:none;">'
+      // Sub-cabeçalho colunas
+      + '<div style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;background:#F5F5F3;border-bottom:1px solid var(--cb);">'
+      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">Data</span>'
+      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">Obra</span>'
+      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">Entrada</span>'
+      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">Saída</span>'
+      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">Líquido</span>'
+      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">HE</span>'
+      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">A.Not.</span>'
       + '</div>'
-      + '<span class="status-pill ' + (saldo >= 0 ? 'pill-on' : 'pill-off') + '">' + saldoStr + '</span>'
-      + '</div>'
-      + '<div class="banco-stats">'
-      + '<div class="banco-stat"><div class="banco-stat-num">' + minToStr(Math.round(hEspAjust)) + '</div><div class="banco-stat-lbl">Esperado</div></div>'
-      + '<div class="banco-stat"><div class="banco-stat-num">' + minToStr(Math.round(totalLiq)) + '</div><div class="banco-stat-lbl">Realizado</div></div>'
-      + '<div class="banco-stat"><div class="banco-stat-num ' + saldoCls + '">' + saldoStr + '</div><div class="banco-stat-lbl">Saldo</div></div>'
-      + '<div class="banco-stat"><div class="banco-stat-num" style="color:#E65100;">' + (totalHe50 > 0 ? minToStr(Math.round(totalHe50)) : '-') + '</div><div class="banco-stat-lbl">HE 50%</div></div>'
-      + '<div class="banco-stat"><div class="banco-stat-num" style="color:#880E4F;">' + (totalHe100 > 0 ? minToStr(Math.round(totalHe100)) : '-') + '</div><div class="banco-stat-lbl">HE 100%</div></div>'
-      + '<div class="banco-stat"><div class="banco-stat-num" style="color:#4527A0;">' + (totalAdicNot > 0 ? minToStr(Math.round(totalAdicNot)) : '-') + '</div><div class="banco-stat-lbl">Adic. Not.</div></div>'
+      + linhas
       + '</div></div>';
   });
 
   el.innerHTML = html;
+
+  // Toggle expandir/recolher
+  funcs.forEach(function(_, fi) {
+    document.getElementById('banco-head-' + fi).addEventListener('click', function() {
+      var body = document.getElementById('banco-body-' + fi);
+      var chev = this.querySelector('.chev');
+      var open = body.style.display !== 'none';
+      body.style.display = open ? 'none' : 'block';
+      if (chev) chev.classList.toggle('open', !open);
+    });
+  });
 }
 
 /* CONFIGURACOES - SENHA ADMIN */
