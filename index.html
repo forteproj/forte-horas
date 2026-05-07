@@ -88,6 +88,21 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 .toggle input:checked + .tslider{background:var(--am);}
 .toggle input:checked + .tslider::before{transform:translateX(21px);}
 .t-green input:checked + .tslider{background:var(--ve);}
+/* RELOGIO MESTRE */
+.mestre-card{background:#F0F7FF;border-color:#B8D4ED;}
+.mestre-tit{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--az);margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+.mestre-tit::before{content:'';display:inline-block;width:3px;height:13px;background:var(--az);border-radius:2px;}
+.mestre-desc{font-size:12px;color:var(--cm);margin-bottom:14px;}
+.mestre-row{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;}
+.mestre-row .field input{background:white;}
+.mestre-row .field input:focus{border-color:var(--az);}
+.btn-aplicar-mestre{background:var(--az);color:white;border:none;border-radius:7px;padding:10px 18px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.5px;cursor:pointer;text-transform:uppercase;height:42px;white-space:nowrap;transition:background .15s;}
+.btn-aplicar-mestre:hover{background:#1F5687;}
+.btn-aplicar-mestre:disabled{background:#A0B5CC;cursor:not-allowed;}
+@media(max-width:560px){
+  .mestre-row{grid-template-columns:1fr 1fr;}
+  .btn-aplicar-mestre{grid-column:1/-1;width:100%;}
+}
 /* ABONO DE EQUIPE */
 .abono-card{background:#FFFAF2;border-color:#EDD59A;}
 .abono-card.on{background:var(--am-c);border-color:var(--am);}
@@ -458,6 +473,18 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
     <div class="card">
       <div class="card-title">Equipe</div>
       <div class="equipe-aviso" id="aviso-abono">Abono de equipe ativo - ajuste individualmente se necessario</div>
+
+      <!-- RELOGIO MESTRE -->
+      <div class="card mestre-card" style="margin-bottom:14px;padding:14px 16px;box-shadow:none;">
+        <div class="mestre-tit">Relogio Mestre</div>
+        <div class="mestre-desc">Defina os horarios e aplique para toda a equipe. Voce pode ajustar individualmente depois.</div>
+        <div class="mestre-row">
+          <div class="field"><label>Entrada</label><input type="time" id="mestre-ent" value="07:00" /></div>
+          <div class="field"><label>Saida</label><input type="time" id="mestre-sai" value="17:00" /></div>
+          <button type="button" class="btn-aplicar-mestre" id="btn-aplicar-mestre">Aplicar a todos</button>
+        </div>
+      </div>
+
       <div class="func-hdr">
         <span>Funcionario</span><span>Entrada</span><span>Saida</span><span>Situacao</span><span></span>
       </div>
@@ -1608,6 +1635,32 @@ document.getElementById('func-list').addEventListener('click', function(e) {
   if (!btn) return;
   var row = document.getElementById('fr-' + btn.dataset.rowid);
   if (row) row.remove();
+});
+
+/* RELOGIO MESTRE - aplica horarios em toda a equipe */
+document.getElementById('btn-aplicar-mestre').addEventListener('click', function() {
+  var ent = document.getElementById('mestre-ent').value;
+  var sai = document.getElementById('mestre-sai').value;
+  if (!ent || !sai) { toast('Informe entrada e saida no relogio mestre!', 'err'); return; }
+  var rows = document.querySelectorAll('#func-list .func-row');
+  if (rows.length === 0) { toast('Nenhum funcionario na equipe!', 'err'); return; }
+  var aplicados = 0;
+  rows.forEach(function(row) {
+    var inpEnt = row.querySelector('.fn-i');
+    var inpSai = row.querySelector('.fn-o');
+    var selAb  = row.querySelector('.fn-ab');
+    // So aplica em quem trabalhou (nao sobrescreve abonados individuais)
+    if (selAb && selAb.value === 'Trabalhou') {
+      if (inpEnt) inpEnt.value = ent;
+      if (inpSai) inpSai.value = sai;
+      aplicados++;
+    }
+  });
+  if (aplicados === 0) {
+    toast('Nenhum funcionario com situacao "Trabalhou" para aplicar.', 'err');
+  } else {
+    toast('Horarios aplicados a ' + aplicados + ' funcionario' + (aplicados > 1 ? 's' : '') + '!', 'ok');
+  }
 });
 
 document.getElementById('f-placa').addEventListener('input', function() {
