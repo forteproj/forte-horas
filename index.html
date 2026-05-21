@@ -2760,9 +2760,13 @@ function renderBancoHoras() {
   var anoN = parseInt(fAno), mesN = parseInt(fMes);
   var el   = document.getElementById('banco-lista');
 
-  var primDia = new Date(anoN, mesN-1, 1);
-  var ultDia  = new Date(anoN, mesN, 0);
-  var hojeStr = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0') + '-' + String(new Date().getDate()).padStart(2,'0');
+  var hoje    = new Date();
+  var hojeStr = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
+
+  function fmtHora(m) {
+    m = ((m % 1440) + 1440) % 1440;
+    return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+  }
 
   var allRegs = getRegs().filter(function(r) {
     if (!r.data) return false;
@@ -2774,12 +2778,17 @@ function renderBancoHoras() {
   funcs.sort(function(a,b){ return a.nome.localeCompare(b.nome,'pt-BR'); });
   if (!funcs.length) { el.innerHTML = '<div class="empty"><div class="ico">-</div><p>Nenhum funcionario cadastrado.</p></div>'; return; }
 
+  var COL = '100px 1fr 52px 62px 62px 52px 76px 62px 76px 66px';
+
   var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">'
     + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--cm);cursor:pointer;">'
     + '<input type="checkbox" id="banco-sel-all" style="width:16px;height:16px;cursor:pointer;" /> Selecionar todos'
     + '</label>'
     + '<button class="btn-prim" id="btn-banco-print-lot" style="margin-left:auto;">&#128438; Imprimir Selecionados</button>'
     + '</div>';
+
+  var primDia = new Date(anoN, mesN-1, 1);
+  var ultDia  = new Date(anoN, mesN, 0);
 
   funcs.forEach(function(func, fi) {
     var regsPorData = {};
@@ -2791,79 +2800,137 @@ function renderBancoHoras() {
       });
     });
 
-    var totalLiq = 0, totalHe50 = 0, totalHe100 = 0, totalAdicNot = 0;
-    var diasAbono = 0, linhas = '';
+    var stHe50Sab = 0, stHe100Dom = 0, stHe100Fer = 0, stHe50Util = 0;
+    var stAbonos = 0, stAdicNot = 0;
+    var linhas = '';
 
     for (var di = new Date(primDia); di <= ultDia; di.setDate(di.getDate()+1)) {
-      var dStr  = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
-      var dt    = new Date(dStr+'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-      var dow2  = di.getDay();
-      var isFds = (dow2 === 0 || dow2 === 6);
+      var dStr = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
+      if (dStr > hojeStr) continue;
+
+      var dt  = new Date(dStr+'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      var dow = di.getDay();
+      var isFds = (dow === 0 || dow === 6);
 
       if (regsPorData[dStr]) {
         regsPorData[dStr].forEach(function(m) {
           var f = m.func, r = m.reg;
           var ab = f.abono || 'Trabalhou';
+          var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
+          var uf   = obraObj ? (obraObj.uf||'') : '';
+          var tipo = tipoDia(dStr, uf);
+
+          var rowBg = tipo === 'sabado'   ? 'background:#FFF3E0;'
+                    : tipo === 'domingo'  ? 'background:#FCE4EC;'
+                    : tipo === 'feriado'  ? 'background:#EDE7F6;'
+                    : ab !== 'Trabalhou' ? 'background:#FFFDE7;'
+                    : '';
+
           if (ab !== 'Trabalhou') {
-            if (!isFds) diasAbono++;
-            linhas += '<div style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;">'
-              + '<span style="color:var(--cm);">' + dt + '</span><span>' + r.local + '</span>'
-              + '<span style="color:var(--cm);">-</span><span style="color:var(--cm);">-</span><span style="color:var(--cm);">-</span>'
+            stAbonos++;
+            linhas += '<div style="display:grid;grid-template-columns:' + COL + ';gap:4px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;' + rowBg + '">'
+              + '<span style="font-weight:500;">' + dt + '</span>'
+              + '<span style="color:var(--cm);font-size:11px;">' + r.local + '</span>'
+              + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+              + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
               + '<span><span class="badge b-abono" style="font-size:10px;">' + ab + '</span></span>'
-              + '<span style="color:var(--cm);">-</span></div>';
+              + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+              + '<span style="color:var(--cm);">—</span></div>';
             return;
           }
-          var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
-          var uf = obraObj ? (obraObj.uf||'') : '';
+
           var jor = calcJornada(f.entrada, f.saida, dStr, true, uf, getFuncAdicNot(func.nome));
           if (!jor) return;
-          if (!isFds) totalLiq += jor.liquido;
-          if (jor.adPerc === 50)  totalHe50  += jor.liquido;
-          if (jor.adPerc === 100) totalHe100 += jor.liquido;
-          totalAdicNot += (jor.adicNot||0);
-          var heStr  = jor.adPerc === 50  ? '<span style="color:#E65100;font-weight:700;">' + minToStr(jor.liquido) + ' (50%)</span>'
-                     : jor.adPerc === 100 ? '<span style="color:#880E4F;font-weight:700;">' + minToStr(jor.liquido) + ' (100%)</span>' : '-';
-          var notStr = jor.adicNot > 0 ? '<span style="color:#4527A0;font-weight:700;">+' + minToStr(Math.round(jor.adicNot)) + '</span>' : '-';
-          linhas += '<div style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;">'
-            + '<span style="' + (isFds ? 'color:#E65100;' : '') + '">' + dt + '</span>'
+
+          if (tipo === 'sabado')  stHe50Sab  += jor.liquido;
+          if (tipo === 'domingo') stHe100Dom += jor.liquido;
+          if (tipo === 'feriado') stHe100Fer += jor.liquido;
+          if (tipo === 'normal')  stHe50Util += Math.max(0, jor.extra);
+          stAdicNot += (jor.adicNot||0);
+
+          var ep = (f.entrada||'').split(':').map(Number);
+          var entMin = ep[0]*60 + (ep[1]||0);
+          var saiAlm = jor.temRefeicao ? fmtHora(entMin + GATILHO_REF) : '—';
+          var retAlm = jor.temRefeicao ? fmtHora(entMin + GATILHO_REF + REFEICAO_MIN) : '—';
+
+          var heMin = tipo === 'normal' ? Math.max(0, jor.extra) : jor.liquido;
+          var heStr = heMin > 0
+            ? '<span style="color:' + (jor.adPerc === 100 ? '#880E4F' : '#E65100') + ';font-weight:700;">'
+              + minToStr(heMin) + ' (' + (jor.adPerc > 0 ? jor.adPerc : 50) + '%)</span>'
+            : '—';
+          var notStr = jor.adicNot > 0 ? '<span style="color:#4527A0;font-weight:700;">+' + minToStr(Math.round(jor.adicNot)) + '</span>' : '—';
+
+          linhas += '<div style="display:grid;grid-template-columns:' + COL + ';gap:4px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;' + rowBg + '">'
+            + '<span style="font-weight:500;">' + dt + '</span>'
             + '<span style="color:var(--cm);font-size:11px;">' + r.local + '</span>'
-            + '<span>' + (f.entrada||'-') + '</span><span>' + (f.saida||'-') + '</span>'
+            + '<span>' + (f.entrada||'—') + '</span>'
+            + '<span style="color:var(--cm);">' + saiAlm + '</span>'
+            + '<span style="color:var(--cm);">' + retAlm + '</span>'
+            + '<span>' + (f.saida||'—') + '</span>'
+            + '<span>—</span>'
             + '<span style="font-weight:600;">' + minToStr(jor.liquido) + '</span>'
-            + '<span>' + heStr + '</span><span>' + notStr + '</span></div>';
+            + '<span>' + heStr + '</span>'
+            + '<span>' + notStr + '</span>'
+            + '</div>';
         });
-      } else if (dStr < hojeStr && !isFds) {
-        linhas += '<div style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;border-bottom:1px solid #FFCDD2;font-size:12px;align-items:center;background:#FFF8F8;">'
+      } else if (isFds) {
+        var dowName = dow === 6 ? 'Sábado' : 'Domingo';
+        var wkBg   = dow === 6 ? 'background:#FFF3E0;' : 'background:#FCE4EC;';
+        var wkClr  = dow === 6 ? '#E65100' : '#880E4F';
+        linhas += '<div style="display:grid;grid-template-columns:100px 1fr;gap:4px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;' + wkBg + 'opacity:0.55;">'
+          + '<span style="color:' + wkClr + ';font-weight:500;">' + dt + '</span>'
+          + '<span style="color:var(--cm);font-style:italic;">' + dowName + ' — sem registro</span>'
+          + '</div>';
+      } else {
+        linhas += '<div style="display:grid;grid-template-columns:100px 1fr;gap:4px;padding:5px 12px;border-bottom:1px solid #FFCDD2;font-size:12px;align-items:center;background:#FFF8F8;">'
           + '<span style="color:#C62828;font-weight:700;">' + dt + '</span>'
-          + '<span style="color:#C62828;font-style:italic;grid-column:2/-1;">&#9888; Sem registro</span></div>';
+          + '<span style="color:#C62828;font-style:italic;">&#9888; Sem registro</span>'
+          + '</div>';
       }
     }
 
     var bh       = calcBancoHorasMensal(func.nome, mesN, anoN);
     var saldo    = bh.heBrutaMin;
     var saldoStr = (saldo >= 0 ? '+' : '') + minToStr(Math.abs(Math.round(saldo)));
-    var saldoCls = saldo >= 0 ? 'pill-on' : 'pill-off';
-    var headId   = 'banco-head-' + fi;
-    var bodyId   = 'banco-body-' + fi;
+    var saldoClr = saldo >= 0 ? 'color:#2E7D32;' : 'color:#C62828;';
 
-    html += '<div class="banco-card">'
+    function stBox(lbl, val, clr) {
+      return '<div style="background:#fff;border:1px solid var(--cb);border-radius:6px;padding:6px 10px;min-width:78px;">'
+        + '<div style="font-size:9px;text-transform:uppercase;color:var(--cm);font-weight:700;margin-bottom:2px;white-space:nowrap;">' + lbl + '</div>'
+        + '<div style="font-size:13px;font-weight:700;' + (clr||'color:var(--ct);') + '">' + val + '</div>'
+        + '</div>';
+    }
+
+    var statsGrid = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px 10px;border-bottom:1px solid var(--cb);background:#FAFAF8;">'
+      + stBox('HE 50% Sáb',    stHe50Sab  > 0 ? minToStr(Math.round(stHe50Sab))  : '—', stHe50Sab  > 0 ? 'color:#E65100;' : '')
+      + stBox('HE 100% Dom',   stHe100Dom > 0 ? minToStr(Math.round(stHe100Dom)) : '—', stHe100Dom > 0 ? 'color:#880E4F;' : '')
+      + stBox('HE 100% Fer',   stHe100Fer > 0 ? minToStr(Math.round(stHe100Fer)) : '—', stHe100Fer > 0 ? 'color:#6A1B9A;' : '')
+      + stBox('HE 50% D.Útil', stHe50Util > 0 ? minToStr(Math.round(stHe50Util)) : '—', stHe50Util > 0 ? 'color:#1565C0;' : '')
+      + stBox('Abonos',        stAbonos   > 0 ? stAbonos + (stAbonos === 1 ? ' dia' : ' dias') : '—', stAbonos > 0 ? 'color:#F57F17;' : '')
+      + stBox('Saldo BH',      saldoStr, saldoClr)
+      + '</div>';
+
+    var headId = 'banco-head-' + fi;
+    var bodyId = 'banco-body-' + fi;
+
+    var colHdrs = ['Data','Obra','Início','Saída Alm.','Ret. Alm.','Término','Abono','Líquido','HE','Ad. Not.']
+      .map(function(h){ return '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">' + h + '</span>'; }).join('');
+
+    html += '<div class="banco-card" style="margin-bottom:10px;">'
       + '<div id="' + headId + '" style="padding:12px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;background:#FAFAF8;border-bottom:1px solid var(--cb);">'
       + '<input type="checkbox" class="banco-sel" data-func="' + func.nome + '" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;" />'
       + '<div style="flex:1;min-width:0;"><div class="banco-nome">' + func.nome + '</div>'
       + (func.funcao ? '<div class="banco-funcao">' + func.funcao + '</div>' : '') + '</div>'
-      + '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">'
-      + (totalHe50  > 0 ? '<span style="font-size:12px;color:#E65100;font-weight:700;">HE 50%: '  + minToStr(Math.round(totalHe50))  + '</span>' : '')
-      + (totalHe100 > 0 ? '<span style="font-size:12px;color:#880E4F;font-weight:700;">HE 100%: ' + minToStr(Math.round(totalHe100)) + '</span>' : '')
-      + (totalAdicNot > 0 ? '<span style="font-size:12px;color:#4527A0;font-weight:700;">A.Not: ' + minToStr(Math.round(totalAdicNot)) + '</span>' : '')
-      + '<span class="status-pill ' + saldoCls + '">Saldo BH: ' + saldoStr + '</span>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">'
       + '<button class="btn-print btn-banco-print-ind" data-func="' + func.nome + '" title="Imprimir este funcionário" style="flex-shrink:0;">&#128438;</button>'
       + '<span class="chev">v</span>'
       + '</div></div>'
+      + statsGrid
       + '<div id="' + bodyId + '" style="display:none;">'
-      + '<div style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;background:#F5F5F3;border-bottom:1px solid var(--cb);">'
-      + ['Data','Obra','Entrada','Saída','Líquido','HE','A.Not.'].map(function(h){
-          return '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">' + h + '</span>';
-        }).join('')
-      + '</div>' + linhas + '</div></div>';
+      + '<div style="display:grid;grid-template-columns:' + COL + ';gap:4px;padding:5px 12px;background:#F5F5F3;border-bottom:1px solid var(--cb);">'
+      + colHdrs + '</div>'
+      + linhas
+      + '</div></div>';
   });
 
   el.innerHTML = html;
