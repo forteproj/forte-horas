@@ -2619,25 +2619,150 @@ document.getElementById('btn-salvar-edit-reg').addEventListener('click', functio
 
 document.getElementById('btn-banco-gerar').addEventListener('click', renderBancoHoras);
 
+/* Impressão do banco de horas — individual ou em lote */
+function imprimirBancoHoras(nomesList, fMes, fAno) {
+  var mesesNome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  var mesNome   = mesesNome[parseInt(fMes) - 1] || fMes;
+  var allRegs   = getRegs().filter(function(r) {
+    if (!r.data) return false;
+    var p = r.data.split('-');
+    return p[0] === fAno && p[1] === fMes;
+  });
+  allRegs.sort(function(a, b) { return a.data > b.data ? 1 : -1; });
+
+  var paginas = '';
+  nomesList.forEach(function(funcNome, idx) {
+    var bh      = calcBancoHorasMensal(funcNome, parseInt(fMes), parseInt(fAno));
+    var funcObj = getFuncs().find(function(f) { return f.nome === funcNome; });
+    var funcao  = funcObj ? (funcObj.funcao || '') : '';
+
+    var rows = '';
+    allRegs.forEach(function(r) {
+      r.funcionarios.forEach(function(f) {
+        if (f.nome !== funcNome) return;
+        var ab      = f.abono || 'Trabalhou';
+        var obraObj = getObras().find(function(o) { return String(o.id) === String(r.obraId); });
+        var uf      = obraObj ? (obraObj.uf || '') : '';
+        var tipo    = tipoDia(r.data, uf);
+        var dt      = new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+        var tipoLabel = { normal: 'Normal', sabado: 'Sáb +50%', domingo: 'Dom +100%', feriado: 'Feriado +100%' }[tipo] || 'Normal';
+        var tipoColor = tipo === 'normal' ? '#333' : (tipo === 'sabado' ? '#E65100' : '#880E4F');
+        if (ab !== 'Trabalhou') {
+          rows += '<tr><td>' + dt + '</td><td style="font-size:9px;color:#666;">' + r.local + '</td>'
+            + '<td style="text-align:center;color:#999;">-</td><td style="text-align:center;color:#999;">-</td>'
+            + '<td style="text-align:center;color:#999;">-</td>'
+            + '<td style="text-align:center;"><span style="background:#FEF3DC;color:#8A6010;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;">' + ab + '</span></td>'
+            + '</tr>';
+          return;
+        }
+        var jor = calcJornada(f.entrada, f.saida, r.data, true, uf, getFuncAdicNot(funcNome));
+        rows += '<tr>'
+          + '<td>' + dt + '</td>'
+          + '<td style="font-size:9px;color:#666;">' + r.local + '</td>'
+          + '<td style="text-align:center;">' + (f.entrada || '-') + '</td>'
+          + '<td style="text-align:center;">' + (f.saida || '-') + '</td>'
+          + '<td style="text-align:center;font-weight:700;">' + (jor ? minToStr(jor.liquido) : '-') + '</td>'
+          + '<td style="text-align:center;color:' + tipoColor + ';font-weight:700;">' + tipoLabel + '</td>'
+          + '</tr>';
+      });
+    });
+
+    var saldoCor   = bh.saldoNegativo ? '#C62828' : (bh.heBrutaMin > 0 ? '#2E7D32' : '#555');
+    var saldoStr   = (bh.heBrutaMin >= 0 ? '+' : '') + minToStr(Math.abs(Math.round(bh.heBrutaMin)));
+
+    var debitosHtml = '';
+    if (bh.detalheDebitos.length) {
+      var dRows = bh.detalheDebitos.map(function(d) {
+        var dtf = new Date(d.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+        return '<tr><td>' + dtf + '</td><td>' + d.abono + '</td><td style="text-align:right;color:#8A6010;">−8h48</td></tr>';
+      }).join('');
+      debitosHtml = '<div style="margin-top:8px;">'
+        + '<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#8A6010;margin-bottom:3px;">Abonos que debitaram BH (' + bh.diasUteisAbonados + ' dia(s))</div>'
+        + '<table><thead><tr style="background:#FEF3DC;"><th style="text-align:left;">Data</th><th style="text-align:left;">Motivo</th><th style="text-align:right;">Débito</th></tr></thead>'
+        + '<tbody>' + dRows + '</tbody></table></div>';
+    }
+
+    var fdsHtml = '';
+    if (bh.heFds.length) {
+      var qtdSab      = bh.heFds.filter(function(h) { return h.tipo === 'sabado'; }).length;
+      var totSabMin   = bh.heFds.filter(function(h) { return h.tipo === 'sabado'; }).reduce(function(a, h) { return a + h.liquidoMin; }, 0);
+      var qtdDomFer   = bh.heFds.filter(function(h) { return h.tipo !== 'sabado'; }).length;
+      var totDomFerMin= bh.heFds.filter(function(h) { return h.tipo !== 'sabado'; }).reduce(function(a, h) { return a + h.liquidoMin; }, 0);
+      fdsHtml = '<div style="margin-top:8px;padding:6px 8px;border:1px solid #B8D4ED;background:#EAF2FB;border-radius:4px;">'
+        + '<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#1565C0;margin-bottom:3px;">HE fins de semana / feriados (fora do banco)</div>'
+        + (qtdSab    > 0 ? '<div style="font-size:9px;">• ' + qtdSab    + ' sábado(s) — ' + minToStr(Math.round(totSabMin))    + ' a receber (+50%)</div>' : '')
+        + (qtdDomFer > 0 ? '<div style="font-size:9px;">• ' + qtdDomFer + ' domingo(s)/feriado(s) — ' + minToStr(Math.round(totDomFerMin)) + ' a receber (+100%)</div>' : '')
+        + '</div>';
+    }
+
+    var alertaNeg = bh.saldoNegativo
+      ? '<div style="margin-top:8px;padding:6px 8px;border:1px solid #F0C5C3;background:#FDECEA;border-radius:4px;font-size:9px;color:#C62828;line-height:1.5;">'
+        + '<b>⚠ Saldo negativo — nenhum desconto será aplicado ao salário.</b> Este registro documenta que os dias improdutivos superaram as HE realizadas no período.'
+        + '</div>'
+      : '';
+
+    var pageBreak = idx < nomesList.length - 1 ? 'page-break-after:always;' : '';
+
+    paginas += '<div style="' + pageBreak + '">'
+      + '<div class="hdr"><div><div class="hdr-title">Banco de Horas — FORTE</div>'
+      + '<div class="hdr-sub">' + funcNome + (funcao ? ' &nbsp;|&nbsp; ' + funcao : '') + ' &nbsp;|&nbsp; ' + mesNome + ' / ' + fAno + '</div></div>'
+      + '<div class="hdr-date">Gerado em ' + new Date().toLocaleDateString('pt-BR') + '</div></div>'
+      + '<div class="stats-grid">'
+      + '<div class="stat-box"><div class="stat-val">' + minToStr(bh.esperadoMin) + '</div><div class="stat-lbl">Esperado</div></div>'
+      + '<div class="stat-box"><div class="stat-val">' + minToStr(Math.round(bh.realizadoMin)) + '</div><div class="stat-lbl">Realizado</div></div>'
+      + '<div class="stat-box" style="color:' + saldoCor + ';"><div class="stat-val">' + saldoStr + '</div><div class="stat-lbl">Saldo BH</div></div>'
+      + '<div class="stat-box" style="color:#1565C0;"><div class="stat-val">' + (bh.totalHeFdsMin > 0 ? minToStr(Math.round(bh.totalHeFdsMin)) : '-') + '</div><div class="stat-lbl">HE FDS</div></div>'
+      + '</div>'
+      + alertaNeg + debitosHtml + fdsHtml
+      + '<table style="margin-top:10px;"><thead><tr>'
+      + '<th>Data</th><th>Obra</th><th style="text-align:center;">Entrada</th><th style="text-align:center;">Saída</th>'
+      + '<th style="text-align:center;">Líquido</th><th style="text-align:center;">Tipo dia</th>'
+      + '</tr></thead><tbody>' + rows + '</tbody></table>'
+      + '<div class="docsign">'
+      + '<div class="dbox"><div class="dline"></div><div class="dlbl">Assinatura do Colaborador</div><div class="dnome">' + funcNome + '</div></div>'
+      + '<div class="dbox"><div class="dline"></div><div class="dlbl">Assinatura FORTE</div><div class="dnome">Responsável</div></div>'
+      + '</div>'
+      + '<p class="foot">FORTE Sistema | Banco de Horas gerado automaticamente</p>'
+      + '</div>';
+  });
+
+  var css = '@page{size:A4 portrait;margin:12mm 10mm}'
+    + '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
+    + 'body{font-family:Arial,sans-serif;color:#222;font-size:9px;margin:0;padding:0}'
+    + '.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;border-bottom:2px solid #F5A623;padding-bottom:6px}'
+    + '.hdr-title{font-size:13px;font-weight:700;color:#1E1C18;margin-bottom:2px}'
+    + '.hdr-sub{font-size:9px;color:#666}'
+    + '.hdr-date{font-size:8px;color:#999;text-align:right}'
+    + '.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px}'
+    + '.stat-box{background:#F5F5F3;border-radius:4px;padding:5px 8px;text-align:center}'
+    + '.stat-val{font-size:13px;font-weight:700;line-height:1}'
+    + '.stat-lbl{font-size:8px;color:#666;text-transform:uppercase;margin-top:2px;letter-spacing:.3px}'
+    + 'table{width:100%;border-collapse:collapse}'
+    + 'th{background:#F5A623;padding:4px 5px;border:1px solid #ddd;text-align:left;font-size:8px;font-weight:700}'
+    + 'td{padding:3px 5px;border:1px solid #eee;font-size:8.5px;vertical-align:middle}'
+    + 'tr:nth-child(even) td{background:#FAFAF8}'
+    + '.docsign{margin-top:14px;border-top:1px dashed #ccc;padding-top:10px;display:flex;justify-content:space-between}'
+    + '.dbox{text-align:center}.dline{border-bottom:1px solid #333;width:200px;margin-bottom:3px;height:24px}'
+    + '.dlbl{font-size:8px;color:#666}.dnome{font-size:8px;font-weight:700;color:#333;margin-top:2px}'
+    + '.foot{margin-top:8px;font-size:7px;color:#aaa;text-align:right}';
+
+  var html = '<html><head><title>Banco de Horas — FORTE</title><style>' + css + '</style></head><body>' + paginas + '</body></html>';
+  var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  var url  = URL.createObjectURL(blob);
+  var w    = window.open(url, '_blank');
+  if (!w) { toast('Habilite popups para imprimir!', 'err'); }
+  else     { setTimeout(function() { w.print(); URL.revokeObjectURL(url); }, 600); }
+}
+
 function renderBancoHoras() {
   var fMes = document.getElementById('banco-mes').value;
   var fAno = document.getElementById('banco-ano').value;
   var anoN = parseInt(fAno), mesN = parseInt(fMes);
   var el   = document.getElementById('banco-lista');
-  var mesesNome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-  // Dias úteis do mês para h. esperadas
   var primDia = new Date(anoN, mesN-1, 1);
   var ultDia  = new Date(anoN, mesN, 0);
   var hojeStr = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0') + '-' + String(new Date().getDate()).padStart(2,'0');
-  var diasUteis = 0;
-  for (var dc = new Date(primDia); dc <= ultDia; dc.setDate(dc.getDate()+1)) {
-    var dow = dc.getDay(); if (dow === 0 || dow === 6) continue;
-    var dcs = dc.getFullYear() + '-' + String(dc.getMonth()+1).padStart(2,'0') + '-' + String(dc.getDate()).padStart(2,'0');
-    if (dcs > hojeStr || isFeriado(dcs,'')) continue;
-    diasUteis++;
-  }
-  var hEsperadas = diasUteis * JORNADA_MIN;
 
   var allRegs = getRegs().filter(function(r) {
     if (!r.data) return false;
@@ -2649,9 +2774,14 @@ function renderBancoHoras() {
   funcs.sort(function(a,b){ return a.nome.localeCompare(b.nome,'pt-BR'); });
   if (!funcs.length) { el.innerHTML = '<div class="empty"><div class="ico">-</div><p>Nenhum funcionario cadastrado.</p></div>'; return; }
 
-  var html = '';
+  var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--cm);cursor:pointer;">'
+    + '<input type="checkbox" id="banco-sel-all" style="width:16px;height:16px;cursor:pointer;" /> Selecionar todos'
+    + '</label>'
+    + '<button class="btn-prim" id="btn-banco-print-lot" style="margin-left:auto;">&#128438; Imprimir Selecionados</button>'
+    + '</div>';
+
   funcs.forEach(function(func, fi) {
-    // Mapa de registros por data deste funcionário
     var regsPorData = {};
     allRegs.forEach(function(r) {
       r.funcionarios.forEach(function(f) {
@@ -2661,15 +2791,13 @@ function renderBancoHoras() {
       });
     });
 
-    // Percorre todos os dias do mês
     var totalLiq = 0, totalHe50 = 0, totalHe100 = 0, totalAdicNot = 0;
-    var diasAbono = 0, diasSemReg = 0;
-    var linhas = '';
+    var diasAbono = 0, linhas = '';
 
     for (var di = new Date(primDia); di <= ultDia; di.setDate(di.getDate()+1)) {
-      var dStr = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
-      var dt   = new Date(dStr+'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-      var dow2 = di.getDay();
+      var dStr  = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
+      var dt    = new Date(dStr+'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      var dow2  = di.getDay();
       var isFds = (dow2 === 0 || dow2 === 6);
 
       if (regsPorData[dStr]) {
@@ -2677,15 +2805,12 @@ function renderBancoHoras() {
           var f = m.func, r = m.reg;
           var ab = f.abono || 'Trabalhou';
           if (ab !== 'Trabalhou') {
-            if (ab.toLowerCase().indexOf('atestado') < 0 && !isFds) diasAbono++;
-            linhas += '<div class="hist-func-row" style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;">'
-              + '<span style="color:var(--cm);">' + dt + '</span>'
-              + '<span>' + r.local + '</span>'
-              + '<span style="color:var(--cm);">-</span><span style="color:var(--cm);">-</span>'
-              + '<span style="color:var(--cm);">-</span>'
+            if (!isFds) diasAbono++;
+            linhas += '<div style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;">'
+              + '<span style="color:var(--cm);">' + dt + '</span><span>' + r.local + '</span>'
+              + '<span style="color:var(--cm);">-</span><span style="color:var(--cm);">-</span><span style="color:var(--cm);">-</span>'
               + '<span><span class="badge b-abono" style="font-size:10px;">' + ab + '</span></span>'
-              + '<span style="color:var(--cm);">-</span>'
-              + '</div>';
+              + '<span style="color:var(--cm);">-</span></div>';
             return;
           }
           var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
@@ -2696,73 +2821,75 @@ function renderBancoHoras() {
           if (jor.adPerc === 50)  totalHe50  += jor.liquido;
           if (jor.adPerc === 100) totalHe100 += jor.liquido;
           totalAdicNot += (jor.adicNot||0);
-          var heStr = jor.adPerc === 50  ? '<span style="color:#E65100;font-weight:700;">' + minToStr(jor.liquido) + ' (50%)</span>'
-                    : jor.adPerc === 100 ? '<span style="color:#880E4F;font-weight:700;">' + minToStr(jor.liquido) + ' (100%)</span>'
-                    : '-';
+          var heStr  = jor.adPerc === 50  ? '<span style="color:#E65100;font-weight:700;">' + minToStr(jor.liquido) + ' (50%)</span>'
+                     : jor.adPerc === 100 ? '<span style="color:#880E4F;font-weight:700;">' + minToStr(jor.liquido) + ' (100%)</span>' : '-';
           var notStr = jor.adicNot > 0 ? '<span style="color:#4527A0;font-weight:700;">+' + minToStr(Math.round(jor.adicNot)) + '</span>' : '-';
-          var diaStyle = isFds ? 'color:#E65100;' : '';
           linhas += '<div style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;">'
-            + '<span style="' + diaStyle + '">' + dt + '</span>'
+            + '<span style="' + (isFds ? 'color:#E65100;' : '') + '">' + dt + '</span>'
             + '<span style="color:var(--cm);font-size:11px;">' + r.local + '</span>'
-            + '<span>' + (f.entrada||'-') + '</span>'
-            + '<span>' + (f.saida||'-') + '</span>'
+            + '<span>' + (f.entrada||'-') + '</span><span>' + (f.saida||'-') + '</span>'
             + '<span style="font-weight:600;">' + minToStr(jor.liquido) + '</span>'
-            + '<span>' + heStr + '</span>'
-            + '<span>' + notStr + '</span>'
-            + '</div>';
+            + '<span>' + heStr + '</span><span>' + notStr + '</span></div>';
         });
-      } else if (dStr < hojeStr) {
-        if (!isFds) diasSemReg++;
+      } else if (dStr < hojeStr && !isFds) {
         linhas += '<div style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;border-bottom:1px solid #FFCDD2;font-size:12px;align-items:center;background:#FFF8F8;">'
           + '<span style="color:#C62828;font-weight:700;">' + dt + '</span>'
-          + '<td colspan="6"><span style="color:#C62828;font-style:italic;">&#9888; Sem registro</span></td>'
-          + '</div>';
+          + '<span style="color:#C62828;font-style:italic;grid-column:2/-1;">&#9888; Sem registro</span></div>';
       }
     }
 
-    // Saldo
-    var hEspAjust = Math.max(0, hEsperadas - diasAbono * JORNADA_MIN);
-    var saldo     = totalLiq - hEspAjust;
-    var saldoStr  = (saldo >= 0 ? '+' : '') + minToStr(Math.abs(Math.round(saldo)));
-    var saldoCls  = saldo >= 0 ? 'pill-on' : 'pill-off';
-
-    var headId = 'banco-head-' + fi;
-    var bodyId = 'banco-body-' + fi;
+    var bh       = calcBancoHorasMensal(func.nome, mesN, anoN);
+    var saldo    = bh.heBrutaMin;
+    var saldoStr = (saldo >= 0 ? '+' : '') + minToStr(Math.abs(Math.round(saldo)));
+    var saldoCls = saldo >= 0 ? 'pill-on' : 'pill-off';
+    var headId   = 'banco-head-' + fi;
+    var bodyId   = 'banco-body-' + fi;
 
     html += '<div class="banco-card">'
-      // Cabeçalho clicável
-      + '<div id="' + headId + '" style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:#FAFAF8;border-bottom:1px solid var(--cb);">'
-      + '<div><div class="banco-nome">' + func.nome + '</div>'
+      + '<div id="' + headId + '" style="padding:12px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;background:#FAFAF8;border-bottom:1px solid var(--cb);">'
+      + '<input type="checkbox" class="banco-sel" data-func="' + func.nome + '" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;" />'
+      + '<div style="flex:1;min-width:0;"><div class="banco-nome">' + func.nome + '</div>'
       + (func.funcao ? '<div class="banco-funcao">' + func.funcao + '</div>' : '') + '</div>'
-      + '<div style="display:flex;align-items:center;gap:10px;">'
-      // Stats resumo no cabeçalho
-      + (totalHe50  > 0 ? '<span style="font-size:12px;color:#E65100;font-weight:700;">HE 50%: ' + minToStr(Math.round(totalHe50)) + '</span>' : '')
+      + '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">'
+      + (totalHe50  > 0 ? '<span style="font-size:12px;color:#E65100;font-weight:700;">HE 50%: '  + minToStr(Math.round(totalHe50))  + '</span>' : '')
       + (totalHe100 > 0 ? '<span style="font-size:12px;color:#880E4F;font-weight:700;">HE 100%: ' + minToStr(Math.round(totalHe100)) + '</span>' : '')
       + (totalAdicNot > 0 ? '<span style="font-size:12px;color:#4527A0;font-weight:700;">A.Not: ' + minToStr(Math.round(totalAdicNot)) + '</span>' : '')
-      + '<span class="status-pill ' + saldoCls + '">Saldo: ' + saldoStr + '</span>'
+      + '<span class="status-pill ' + saldoCls + '">Saldo BH: ' + saldoStr + '</span>'
+      + '<button class="btn-print btn-banco-print-ind" data-func="' + func.nome + '" title="Imprimir este funcionário" style="flex-shrink:0;">&#128438;</button>'
       + '<span class="chev">v</span>'
       + '</div></div>'
-      // Corpo expansível
       + '<div id="' + bodyId + '" style="display:none;">'
-      // Sub-cabeçalho colunas
       + '<div style="display:grid;grid-template-columns:90px 1fr 60px 60px 80px 80px 80px;gap:6px;padding:5px 12px;background:#F5F5F3;border-bottom:1px solid var(--cb);">'
-      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">Data</span>'
-      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">Obra</span>'
-      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">Entrada</span>'
-      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">Saída</span>'
-      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">Líquido</span>'
-      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">HE</span>'
-      + '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">A.Not.</span>'
-      + '</div>'
-      + linhas
-      + '</div></div>';
+      + ['Data','Obra','Entrada','Saída','Líquido','HE','A.Not.'].map(function(h){
+          return '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">' + h + '</span>';
+        }).join('')
+      + '</div>' + linhas + '</div></div>';
   });
 
   el.innerHTML = html;
 
-  // Toggle expandir/recolher
+  document.getElementById('banco-sel-all').addEventListener('change', function() {
+    var checked = this.checked;
+    document.querySelectorAll('#banco-lista .banco-sel').forEach(function(cb) { cb.checked = checked; });
+  });
+
+  document.getElementById('btn-banco-print-lot').addEventListener('click', function() {
+    var sel = [];
+    document.querySelectorAll('#banco-lista .banco-sel:checked').forEach(function(cb) { sel.push(cb.dataset.func); });
+    if (!sel.length) { toast('Selecione ao menos um funcionário!', 'err'); return; }
+    imprimirBancoHoras(sel, fMes, fAno);
+  });
+
+  document.querySelectorAll('#banco-lista .btn-banco-print-ind').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      imprimirBancoHoras([btn.dataset.func], fMes, fAno);
+    });
+  });
+
   funcs.forEach(function(_, fi) {
-    document.getElementById('banco-head-' + fi).addEventListener('click', function() {
+    document.getElementById('banco-head-' + fi).addEventListener('click', function(e) {
+      if (e.target.closest('.banco-sel') || e.target.closest('.btn-banco-print-ind')) return;
       var body = document.getElementById('banco-body-' + fi);
       var chev = this.querySelector('.chev');
       var open = body.style.display !== 'none';
