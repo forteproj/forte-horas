@@ -784,13 +784,6 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
       <div class="modal-toggle-lbl">Tipo Ativo</div>
       <label class="toggle t-green"><input type="checkbox" id="mab-ativo" checked /><span class="tslider"></span></label>
     </div>
-    <div class="modal-toggle-row">
-      <div>
-        <div class="modal-toggle-lbl">Debita Banco de Horas</div>
-        <div class="mestre-desc" style="margin-top:3px;">Dias com este abono consomem HE acumuladas no banco antes do pagamento.</div>
-      </div>
-      <label class="toggle"><input type="checkbox" id="mab-debitabh" /><span class="tslider"></span></label>
-    </div>
     <div class="modal-btns">
       <button class="m-cancel" data-close="modal-abono">Cancelar</button>
       <button class="m-ok" id="btn-salvar-abono">Salvar</button>
@@ -995,35 +988,20 @@ function getEncs()  { return sget('forte_encs')  || []; }
 function getRegs()  { return sget('forte_regs')  || []; }
 function getVeiculos() { return sget('forte_veiculos') || []; }
 function getColabs()   { return sget('forte_colabs')   || []; }
-var DEBITA_BH_MAP = {
-  'Chuva': true, 'Manutencao': true, 'Galpao SP': true,
-  'Viagem': false, 'Folga': false, 'Folga Coletiva': false,
-  'Afastado': false, 'Atestado': false, 'Outro': false
-};
-
 function getAbonosCustom() {
   var lista = sget('forte_abonos');
   if (!lista) {
     lista = [
-      { id: 1, nome: 'Chuva',      ativo: true, debitaBH: true  },
-      { id: 2, nome: 'Manutencao', ativo: true, debitaBH: true  },
-      { id: 3, nome: 'Galpao SP',  ativo: true, debitaBH: true  },
-      { id: 4, nome: 'Viagem',     ativo: true, debitaBH: false },
-      { id: 5, nome: 'Folga',      ativo: true, debitaBH: false },
-      { id: 6, nome: 'Afastado',   ativo: true, debitaBH: false },
-      { id: 7, nome: 'Atestado',   ativo: true, debitaBH: false },
-      { id: 8, nome: 'Outro',      ativo: true, debitaBH: false }
+      { id: 1, nome: 'Chuva',          ativo: true },
+      { id: 2, nome: 'Manutencao',     ativo: true },
+      { id: 3, nome: 'Galpao SP',      ativo: true },
+      { id: 4, nome: 'Viagem',         ativo: true },
+      { id: 5, nome: 'Folga',          ativo: true },
+      { id: 6, nome: 'Afastado',       ativo: true },
+      { id: 7, nome: 'Atestado',       ativo: true },
+      { id: 8, nome: 'Outro',          ativo: true }
     ];
     sset('forte_abonos', lista);
-  } else {
-    var migrado = false;
-    lista.forEach(function(a) {
-      if (a.debitaBH === undefined) {
-        a.debitaBH = DEBITA_BH_MAP.hasOwnProperty(a.nome) ? DEBITA_BH_MAP[a.nome] : false;
-        migrado = true;
-      }
-    });
-    if (migrado) sset('forte_abonos', lista);
   }
   return lista;
 }
@@ -1165,72 +1143,6 @@ function calcHorasNot(entMin, saiMin, temRefeicao) {
     }
   });
   return total;
-}
-
-/* Banco de Horas mensal — função pura, sem efeitos colaterais */
-function calcBancoHorasMensal(funcNome, mes, ano) {
-  var fMes = String(mes).padStart(2, '0');
-  var fAno = String(ano);
-  var allRegs = getRegs().filter(function(r) {
-    if (!r.data) return false;
-    var p = r.data.split('-');
-    return p[0] === fAno && p[1] === fMes;
-  });
-
-  var diasUteisTrabalhados = 0;
-  var diasUteisAbonados    = 0;
-  var esperadoMin          = 0;
-  var realizadoMin         = 0;
-  var detalheDebitos       = [];
-  var heFds                = [];
-
-  allRegs.forEach(function(r) {
-    r.funcionarios.forEach(function(f) {
-      if (f.nome !== funcNome) return;
-      var ab      = f.abono || 'Trabalhou';
-      var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
-      var uf      = obraObj ? (obraObj.uf || '') : '';
-      var tipo    = tipoDia(r.data, uf);
-
-      if (tipo === 'normal') {
-        if (ab === 'Trabalhou') {
-          diasUteisTrabalhados++;
-          esperadoMin += JORNADA_MIN;
-          var jor = calcJornada(f.entrada, f.saida, r.data, true, uf, getFuncAdicNot(f.nome));
-          if (jor) realizadoMin += jor.liquido;
-        } else {
-          var tipoAbono = getAbonosCustom().find(function(a){ return a.nome === ab; });
-          if (tipoAbono && tipoAbono.debitaBH === true) {
-            diasUteisAbonados++;
-            esperadoMin += JORNADA_MIN;
-            detalheDebitos.push({ data: r.data, abono: ab });
-          }
-        }
-      } else {
-        if (ab === 'Trabalhou') {
-          var jorFds = calcJornada(f.entrada, f.saida, r.data, true, uf, getFuncAdicNot(f.nome));
-          if (jorFds) {
-            heFds.push({ data: r.data, tipo: tipo, liquidoMin: jorFds.liquido, adPerc: jorFds.adPerc, adHoras: jorFds.adHoras });
-          }
-        }
-      }
-    });
-  });
-
-  var heBrutaMin    = realizadoMin - esperadoMin;
-  var totalHeFdsMin = heFds.reduce(function(acc, h){ return acc + h.liquidoMin; }, 0);
-
-  return {
-    diasUteisTrabalhados: diasUteisTrabalhados,
-    diasUteisAbonados:    diasUteisAbonados,
-    esperadoMin:          esperadoMin,
-    realizadoMin:         realizadoMin,
-    heBrutaMin:           heBrutaMin,
-    detalheDebitos:       detalheDebitos,
-    saldoNegativo:        heBrutaMin < 0,
-    heFds:                heFds,
-    totalHeFdsMin:        totalHeFdsMin
-  };
 }
 
 /* Retorna se o funcionario recebe adicional noturno (default: true) */
@@ -1953,17 +1865,8 @@ function renderHist() {
       var totN=0, tot50=0, tot100=0, totAb=0;
       var tRows = '';
       nomes2.forEach(function(n) {
-        var d  = mapa[n];
-        var bh = calcBancoHorasMensal(n, parseInt(fMesAtivo || '0') || parseInt(fAnoAtivo ? '1' : '1'), parseInt(fAnoAtivo || new Date().getFullYear()));
-        // recalcula com mês/ano corretos
-        var mesNum = parseInt(fMesAtivo) || 0;
-        var anoNum = parseInt(fAnoAtivo) || new Date().getFullYear();
-        if (mesNum > 0) bh = calcBancoHorasMensal(n, mesNum, anoNum);
-
+        var d = mapa[n];
         totN   += d.normal; tot50 += d.he50; tot100 += d.he100; totAb += d.abonos;
-        var saldoBHStr  = (bh.heBrutaMin >= 0 ? '+' : '') + minToStr(Math.abs(Math.round(bh.heBrutaMin)));
-        var saldoBHCor  = bh.saldoNegativo ? 'color:var(--vm);background:var(--vm-c);' : (bh.heBrutaMin > 0 ? 'color:var(--ve);background:var(--ve-c);' : '');
-        var heFdsStr    = bh.totalHeFdsMin > 0 ? minToStr(Math.round(bh.totalHeFdsMin)) : '-';
         tRows += '<tr>'
           + '<td>' + n + '</td>'
           + '<td class="num">' + d.dias + '</td>'
@@ -1971,24 +1874,16 @@ function renderHist() {
           + '<td class="he50">' + (d.he50 > 0 ? '+' + minToStr(Math.round(d.he50)) : '-') + '</td>'
           + '<td class="he100">' + (d.he100 > 0 ? '+' + minToStr(Math.round(d.he100)) : '-') + '</td>'
           + '<td class="num">' + (d.abonos > 0 ? d.abonos : '-') + '</td>'
-          + '<td class="num">' + minToStr(Math.round(bh.esperadoMin)) + '</td>'
-          + '<td class="num">' + minToStr(Math.round(bh.realizadoMin)) + '</td>'
-          + '<td class="num" style="font-weight:700;' + saldoBHCor + '">' + saldoBHStr + '</td>'
-          + '<td class="num">' + heFdsStr + '</td>'
           + '</tr>';
       });
       document.getElementById('consolidado-tabela').innerHTML =
         '<table class="ctbl"><thead><tr>'
         + '<th>Funcionario</th><th style="text-align:right;">Dias</th><th style="text-align:right;">H. Normal</th>'
         + '<th style="text-align:right;color:#E65100;">HE 50%</th><th style="text-align:right;color:#880E4F;">HE 100%</th><th style="text-align:right;">Abonos</th>'
-        + '<th style="text-align:right;">Esperado</th><th style="text-align:right;">Realizado</th>'
-        + '<th style="text-align:right;">Saldo BH</th><th style="text-align:right;">HE FDS</th>'
         + '</tr></thead><tbody>' + tRows + '</tbody>'
         + '<tfoot><tr><td><b>TOTAL</b></td><td class="num">-</td><td class="num">' + minToStr(Math.round(totN)) + '</td>'
         + '<td class="he50">+' + minToStr(Math.round(tot50)) + '</td><td class="he100">+' + minToStr(Math.round(tot100)) + '</td>'
-        + '<td class="num">' + totAb + '</td>'
-        + '<td colspan="4" class="num" style="color:var(--cm);">— por funcionário acima —</td>'
-        + '</tr></tfoot></table>';
+        + '<td class="num">' + totAb + '</td></tr></tfoot></table>';
     } else {
       cardCons.style.display = 'none';
     }
@@ -2900,28 +2795,26 @@ document.getElementById('lista-abonos').addEventListener('click', function(e) {
 function abrirModalAbono(id) {
   var a = id ? getAbonosCustom().find(function(x) { return x.id === id; }) : null;
   document.getElementById('mab-title').textContent = a ? 'Editar Tipo de Abono' : 'Novo Tipo de Abono';
-  document.getElementById('mab-id').value       = a ? a.id : '';
-  document.getElementById('mab-nome').value     = a ? a.nome : '';
-  document.getElementById('mab-ativo').checked  = a ? a.ativo : true;
-  document.getElementById('mab-debitabh').checked = a ? (a.debitaBH === true) : false;
+  document.getElementById('mab-id').value    = a ? a.id : '';
+  document.getElementById('mab-nome').value  = a ? a.nome : '';
+  document.getElementById('mab-ativo').checked = a ? a.ativo : true;
   abrirModal('modal-abono');
 }
 
 function salvarAbono() {
-  var nome     = document.getElementById('mab-nome').value.trim();
-  var ativo    = document.getElementById('mab-ativo').checked;
-  var debitaBH = document.getElementById('mab-debitabh').checked;
-  var idVal    = document.getElementById('mab-id').value;
+  var nome  = document.getElementById('mab-nome').value.trim();
+  var ativo = document.getElementById('mab-ativo').checked;
+  var idVal = document.getElementById('mab-id').value;
   if (!nome) { toast('Informe o nome do tipo!', 'err'); return; }
   var lista = getAbonosCustom();
   if (idVal) {
     for (var i = 0; i < lista.length; i++) {
-      if (String(lista[i].id) === String(idVal)) { lista[i] = Object.assign({}, lista[i], { nome: nome, ativo: ativo, debitaBH: debitaBH }); break; }
+      if (String(lista[i].id) === String(idVal)) { lista[i] = Object.assign({}, lista[i], { nome: nome, ativo: ativo }); break; }
     }
   } else {
     var maxId = 0;
     lista.forEach(function(a) { if (a.id > maxId) maxId = a.id; });
-    lista.push({ id: maxId + 1, nome: nome, ativo: ativo, debitaBH: debitaBH });
+    lista.push({ id: maxId + 1, nome: nome, ativo: ativo });
   }
   lista.sort(function(a,b){ return a.nome.localeCompare(b.nome, 'pt-BR'); });
   sset('forte_abonos', lista);
@@ -3444,74 +3337,6 @@ function renderResumoColab() {
       body.style.display = open ? 'none' : 'block';
       chev.classList.toggle('open', !open);
     });
-  }
-
-  // ── BANCO DE HORAS DO MÊS ──────────────────────────────────────────────────
-  var bh = calcBancoHorasMensal(funcNome, parseInt(fMes), parseInt(fAno));
-  var mesesNomeBH = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  var mesNomeBH   = mesesNomeBH[parseInt(fMes) - 1] || fMes;
-  var bhEl = document.getElementById('col-bh-card');
-  if (!bhEl) {
-    bhEl = document.createElement('div');
-    bhEl.id = 'col-bh-card';
-    document.getElementById('col-faltas-wrap').insertAdjacentElement('afterend', bhEl);
-  }
-
-  if (bh.esperadoMin === 0 && bh.heFds.length === 0) {
-    bhEl.innerHTML = '<div class="card" style="margin-bottom:16px;">'
-      + '<div class="card-title">Banco de Horas</div>'
-      + '<div class="empty" style="padding:24px 0;"><p>Nenhum registro encontrado para este período.</p></div>'
-      + '</div>';
-  } else {
-    var saldoCor    = bh.saldoNegativo ? 'var(--vm)' : (bh.heBrutaMin === 0 ? 'var(--cm)' : 'var(--ve)');
-    var saldoBg     = bh.saldoNegativo ? 'var(--vm-c)' : (bh.heBrutaMin === 0 ? 'var(--cf)' : 'var(--ve-c)');
-    var saldoSinal  = bh.heBrutaMin >= 0 ? '+' : '';
-    var saldoStr    = saldoSinal + minToStr(Math.abs(Math.round(bh.heBrutaMin)));
-
-    var debitosHtml = '';
-    if (bh.detalheDebitos.length) {
-      debitosHtml = '<div style="margin-top:10px;padding:10px 12px;background:#FEF3DC;border:1px solid #EDD59A;border-radius:7px;">'
-        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--cm);margin-bottom:6px;">Dias abonados que debitam BH — ' + bh.diasUteisAbonados + ' dia(s) → −' + minToStr(bh.diasUteisAbonados * 528) + '</div>';
-      bh.detalheDebitos.forEach(function(d) {
-        var dtFmt = new Date(d.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-        debitosHtml += '<div style="font-size:13px;color:var(--ct);padding:2px 0;">• ' + dtFmt + ' — <span class="ab-tag ' + abClass(d.abono) + '">' + d.abono + '</span></div>';
-      });
-      debitosHtml += '</div>';
-    }
-
-    var fdsHtml = '';
-    if (bh.heFds.length) {
-      var qtdSab = bh.heFds.filter(function(h){ return h.tipo === 'sabado'; }).length;
-      var qtdDomFer = bh.heFds.filter(function(h){ return h.tipo !== 'sabado'; }).length;
-      var totSabMin = bh.heFds.filter(function(h){ return h.tipo === 'sabado'; }).reduce(function(a,h){ return a + h.liquidoMin; }, 0);
-      var totDomFerMin = bh.heFds.filter(function(h){ return h.tipo !== 'sabado'; }).reduce(function(a,h){ return a + h.liquidoMin; }, 0);
-      fdsHtml = '<div style="margin-top:10px;padding:10px 12px;background:var(--az-c);border:1px solid #B8D4ED;border-radius:7px;">'
-        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--az);margin-bottom:6px;">HE fins de semana / feriados (fora do banco)</div>';
-      if (qtdSab > 0)    fdsHtml += '<div style="font-size:13px;color:var(--ct);padding:2px 0;">• ' + qtdSab + ' sábado(s) → <span class="extra-pill">' + minToStr(Math.round(totSabMin)) + ' a receber (+50%)</span></div>';
-      if (qtdDomFer > 0) fdsHtml += '<div style="font-size:13px;color:var(--ct);padding:2px 0;">• ' + qtdDomFer + ' domingo(s)/feriado(s) → <span class="adic-pill">' + minToStr(Math.round(totDomFerMin)) + ' a receber (+100%)</span></div>';
-      fdsHtml += '</div>';
-    }
-
-    var alertaNeg = bh.saldoNegativo
-      ? '<div style="margin-top:10px;padding:10px 12px;background:var(--vm-c);border:1px solid #F0C5C3;border-radius:7px;font-size:13px;color:var(--vm);line-height:1.6;">'
-        + '<b>⚠ Saldo negativo — nenhum desconto será aplicado ao seu salário.</b><br>'
-        + 'Este registro documenta que os dias improdutivos superaram as horas extras realizadas no período.'
-        + '</div>'
-      : '';
-
-    bhEl.innerHTML = '<div class="card" style="margin-bottom:16px;">'
-      + '<div class="card-title">Banco de Horas — ' + mesNomeBH + ' ' + fAno + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;">'
-      + '<div class="sum-item"><div class="sum-val">' + minToStr(bh.esperadoMin) + '</div><div class="sum-lbl">Jornada esperada (' + (bh.diasUteisTrabalhados + bh.diasUteisAbonados) + ' × 8h48)</div></div>'
-      + '<div class="sum-item"><div class="sum-val">' + minToStr(Math.round(bh.realizadoMin)) + '</div><div class="sum-lbl">Jornada realizada</div></div>'
-      + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr;gap:8px;">'
-      + '<div class="sum-item" style="background:' + saldoBg + ';"><div class="sum-val" style="color:' + saldoCor + ';">' + saldoStr + '</div><div class="sum-lbl">Saldo HE dias úteis</div></div>'
-      + '</div>'
-      + debitosHtml
-      + fdsHtml
-      + alertaNeg
-      + '</div>';
   }
 
   // Filtra registros pelo mês/ano selecionado
