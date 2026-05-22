@@ -45,6 +45,7 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 .rb{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.5px;}
 .rb-adm{background:var(--am);color:#1E1C18;}
 .rb-enc{background:#3A5F3A;color:#A8E6B0;}
+.rb-sup{background:#6A1B9A;color:#E1BEE7;}
 .btn-sair{background:rgba(255,255,255,.08);border:none;color:#aaa;font-family:'Barlow',sans-serif;font-size:12px;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;}
 .btn-sair:hover{background:rgba(255,255,255,.15);color:white;}
 /* NAV */
@@ -555,7 +556,6 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
       <button class="adm-tab" data-tab="veiculos">Veiculos</button>
       <button class="adm-tab" data-tab="colabs">Colaboradores</button>
       <button class="adm-tab" data-tab="config">Configuracoes</button>
-      <button class="adm-tab" data-tab="banco">Banco de Horas</button>
     </div>
     <div class="adm-panel active" id="adm-obras">
       <div class="cad-toolbar">
@@ -653,14 +653,18 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
       </div>
     </div>
 
-    <div class="adm-panel" id="adm-banco">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
-        <select id="banco-mes" style="min-width:130px;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;"></select>
-        <select id="banco-ano" style="min-width:100px;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;"></select>
-        <button class="btn-prim" id="btn-banco-gerar">Gerar</button>
-      </div>
-      <div id="banco-lista"></div>
+  </div>
+  </div>
+  <div class="view" id="view-banco">
+  <div class="container">
+    <div class="page-title">Banco de Horas</div>
+    <div class="page-sub">Espelho de horas por funcionário</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+      <select id="banco-mes" style="min-width:130px;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;"></select>
+      <select id="banco-ano" style="min-width:100px;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;"></select>
+      <button class="btn-prim" id="btn-banco-gerar">Gerar</button>
     </div>
+    <div id="banco-lista"></div>
   </div>
   </div>
   <div class="view" id="view-resumo">
@@ -766,6 +770,13 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
     <div class="modal-toggle-row">
       <div class="modal-toggle-lbl">Encarregado Ativo</div>
       <label class="toggle t-green"><input type="checkbox" id="me-ativo" checked /><span class="tslider"></span></label>
+    </div>
+    <div class="modal-toggle-row" style="margin-top:4px;">
+      <div class="modal-toggle-lbl" style="display:flex;align-items:center;gap:6px;">
+        Supervisor
+        <span style="font-size:11px;color:var(--cm);font-weight:400;">(pode lançar + ver Banco de Horas)</span>
+      </div>
+      <label class="toggle t-green"><input type="checkbox" id="me-supervisor" /><span class="tslider"></span></label>
     </div>
     <div class="modal-btns">
       <button class="m-cancel" data-close="modal-enc">Cancelar</button>
@@ -1475,7 +1486,7 @@ function fazerLogin() {
     }
   }
   if (enc) {
-    sessao = { id: enc.id, nome: enc.nome, tipo: 'enc' };
+    sessao = { id: enc.id, nome: enc.nome, tipo: enc.supervisor ? 'sup' : 'enc' };
     iniciarApp();
     return;
   }
@@ -1510,14 +1521,17 @@ function iniciarApp() {
 
   var rb = sessao.tipo === 'admin'
     ? '<span class="rb rb-adm">Admin</span>'
-    : sessao.tipo === 'enc'
-      ? '<span class="rb rb-enc">Encarregado</span>'
-      : '<span class="rb rb-col">Colaborador</span>';
+    : sessao.tipo === 'sup'
+      ? '<span class="rb rb-sup">Supervisor</span>'
+      : sessao.tipo === 'enc'
+        ? '<span class="rb rb-enc">Encarregado</span>'
+        : '<span class="rb rb-col">Colaborador</span>';
   document.getElementById('h-user').innerHTML = rb + ' <b>' + sessao.nome + '</b>';
 
   var nav = document.getElementById('nav-bar');
   if (sessao.tipo === 'admin') {
     nav.innerHTML = '<button class="nav-btn active" data-view="hist">Historico Geral</button>'
+                  + '<button class="nav-btn" data-view="banco">Banco de Horas</button>'
                   + '<button class="nav-btn" data-view="adm">Administracao</button>';
     document.getElementById('hist-title').textContent = 'Historico Geral';
     document.getElementById('hist-sub').textContent   = 'Todos os apontamentos da empresa';
@@ -1526,6 +1540,17 @@ function iniciarApp() {
     popularFiltroAnos();
     showView('hist');
     renderHist();
+  } else if (sessao.tipo === 'sup') {
+    nav.innerHTML = '<button class="nav-btn active" data-view="form">Novo Registro</button>'
+                  + '<button class="nav-btn" data-view="hist">Meu Historico</button>'
+                  + '<button class="nav-btn" data-view="banco">Banco de Horas</button>';
+    document.getElementById('hist-title').textContent = 'Meu Historico';
+    document.getElementById('hist-sub').textContent   = 'Seus apontamentos registrados';
+    document.getElementById('h-enc').style.display    = 'none';
+    popularFiltroAnos();
+    iniciarForm();
+    showView('form');
+    verificarPendente();
   } else if (sessao.tipo === 'enc') {
     nav.innerHTML = '<button class="nav-btn active" data-view="form">Novo Registro</button>'
                   + '<button class="nav-btn" data-view="hist">Meu Historico</button>';
@@ -1609,7 +1634,7 @@ function iniciarForm(forceBlank) {
   var banner = document.getElementById('banner-ultimo');
   banner.classList.remove('show');
 
-  if (!forceBlank && sessao && sessao.tipo === 'enc') {
+  if (!forceBlank && sessao && (sessao.tipo === 'enc' || sessao.tipo === 'sup')) {
     // Busca ultimo registro deste encarregado
     var todos = getRegs().filter(function(r) { return r.encId === sessao.id; });
     if (todos.length > 0) {
@@ -1796,7 +1821,7 @@ document.getElementById('btn-salvar').addEventListener('click', function() {
   var obras = getObras();
   var obra  = null;
   for (var i = 0; i < obras.length; i++) { if (String(obras[i].id) === String(obraId)) { obra = obras[i]; break; } }
-  var local = obra ? obra.nome + (obra.cidade ? ' - ' + obra.cidade : '') : '';
+  var local = obra ? obra.nome + (obra.cidade && obra.cidade !== obra.nome ? ' - ' + obra.cidade : '') : '';
 
   var rows  = document.querySelectorAll('#func-list .func-row');
   var funcs = [];
@@ -2142,7 +2167,7 @@ function renderHist() {
             var st = aj.status === 'pendente'
               ? '<span class="ajuste-status aj-pend">Pendente</span>'
               : '<span class="ajuste-status aj-res">Resolvido</span>';
-            var btnRes = (sessao.tipo === 'admin' || sessao.tipo === 'enc') && aj.status === 'pendente'
+            var btnRes = (sessao.tipo === 'admin' || sessao.tipo === 'enc' || sessao.tipo === 'sup') && aj.status === 'pendente'
               ? '<button class="btn-resolver" data-resolveraj="' + r.id + '__' + idx + '">Marcar resolvido</button>'
               : '';
             html2 += '<div class="ajuste-msg">' + aj.msg + '</div>'
@@ -2582,7 +2607,7 @@ document.getElementById('btn-salvar-edit-reg').addEventListener('click', functio
   var obras = getObras();
   var obra  = null;
   for (var i = 0; i < obras.length; i++) { if (String(obras[i].id) === String(obraId)) { obra = obras[i]; break; } }
-  var local = obra ? obra.nome + (obra.cidade ? ' - ' + obra.cidade : '') : '';
+  var local = obra ? obra.nome + (obra.cidade && obra.cidade !== obra.nome ? ' - ' + obra.cidade : '') : '';
 
   var rows   = document.querySelectorAll('#er-func-list .edit-func-row');
   var funcs  = [];
@@ -3300,7 +3325,8 @@ function renderEncs() {
   encs.forEach(function(e) {
     var smId = 'sm-enc-' + e.id;
     html += '<div class="cad-item">'
-      + '<div class="cad-info"><div class="cad-nome">' + e.nome + '</div>'
+      + '<div class="cad-info"><div class="cad-nome">' + e.nome
+      + (e.supervisor ? ' <span class="rb rb-sup" style="font-size:10px;padding:2px 7px;">Supervisor</span>' : '') + '</div>'
       + '<div class="cad-sub">Login: <b>' + e.login + '</b> &nbsp;|&nbsp; Senha: <span class="senha-mask" id="' + smId + '">••••••</span>'
       + '<button class="btn-senha-ver" data-smid="' + smId + '" data-senha="' + e.senha + '" title="Ver/ocultar senha">👁</button></div></div>'
       + '<span class="status-pill ' + (e.ativo ? 'pill-on' : 'pill-off') + '">' + (e.ativo ? 'Ativo' : 'Inativo') + '</span>'
@@ -3340,14 +3366,16 @@ function abrirModalEnc(id) {
   document.getElementById('me-login').value = e ? e.login : '';
   document.getElementById('me-senha').value = e ? e.senha : '';
   document.getElementById('me-ativo').checked = e ? e.ativo : true;
+  document.getElementById('me-supervisor').checked = e ? !!e.supervisor : false;
   abrirModal('modal-enc');
 }
 
 function salvarEnc() {
-  var nome  = document.getElementById('me-nome').value.trim();
-  var login = document.getElementById('me-login').value.trim().toLowerCase();
-  var senha = document.getElementById('me-senha').value.trim();
-  var ativo = document.getElementById('me-ativo').checked;
+  var nome       = document.getElementById('me-nome').value.trim();
+  var login      = document.getElementById('me-login').value.trim().toLowerCase();
+  var senha      = document.getElementById('me-senha').value.trim();
+  var ativo      = document.getElementById('me-ativo').checked;
+  var supervisor = document.getElementById('me-supervisor').checked;
   var idVal = document.getElementById('me-id').value;
   if (!nome)  { toast('Informe o nome!', 'err'); return; }
   if (!login) { toast('Informe o login!', 'err'); return; }
@@ -3357,8 +3385,8 @@ function salvarEnc() {
     if (encs[i].login === login && String(encs[i].id) !== String(idVal)) { toast('Login ja em uso!', 'err'); return; }
   }
   if (idVal) {
-    for (var j = 0; j < encs.length; j++) { if (String(encs[j].id) === String(idVal)) { encs[j] = Object.assign({}, encs[j], { nome: nome, login: login, senha: senha, ativo: ativo }); break; } }
-  } else { encs.push({ id: Date.now(), nome: nome, login: login, senha: senha, ativo: ativo }); }
+    for (var j = 0; j < encs.length; j++) { if (String(encs[j].id) === String(idVal)) { encs[j] = Object.assign({}, encs[j], { nome: nome, login: login, senha: senha, ativo: ativo, supervisor: supervisor }); break; } }
+  } else { encs.push({ id: Date.now(), nome: nome, login: login, senha: senha, ativo: ativo, supervisor: supervisor }); }
   encs.sort(function(a,b){ return a.nome.localeCompare(b.nome, 'pt-BR'); });
   sset('forte_encs', encs);
   fecharModal('modal-enc');
@@ -3668,9 +3696,6 @@ function renderResumoColab() {
   }
 
   // ── BANCO DE HORAS DO MÊS ──────────────────────────────────────────────────
-  var bh = calcBancoHorasMensal(funcNome, parseInt(fMes), parseInt(fAno));
-  var mesesNomeBH = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  var mesNomeBH   = mesesNomeBH[parseInt(fMes) - 1] || fMes;
   var bhEl = document.getElementById('col-bh-card');
   if (!bhEl) {
     bhEl = document.createElement('div');
@@ -3678,62 +3703,174 @@ function renderResumoColab() {
     document.getElementById('col-faltas-wrap').insertAdjacentElement('afterend', bhEl);
   }
 
-  if (bh.esperadoMin === 0 && bh.heFds.length === 0) {
-    bhEl.innerHTML = '<div class="card" style="margin-bottom:16px;">'
-      + '<div class="card-title">Banco de Horas</div>'
-      + '<div class="empty" style="padding:24px 0;"><p>Nenhum registro encontrado para este período.</p></div>'
-      + '</div>';
-  } else {
-    var saldoCor    = bh.saldoNegativo ? 'var(--vm)' : (bh.heBrutaMin === 0 ? 'var(--cm)' : 'var(--ve)');
-    var saldoBg     = bh.saldoNegativo ? 'var(--vm-c)' : (bh.heBrutaMin === 0 ? 'var(--cf)' : 'var(--ve-c)');
-    var saldoSinal  = bh.heBrutaMin >= 0 ? '+' : '';
-    var saldoStr    = saldoSinal + minToStr(Math.abs(Math.round(bh.heBrutaMin)));
+  var COL_BH = '100px 1fr 52px 62px 62px 52px 76px 62px 76px 66px';
+  function fmtHoraColab(m) {
+    m = ((m % 1440) + 1440) % 1440;
+    return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+  }
 
-    var debitosHtml = '';
-    if (bh.detalheDebitos.length) {
-      debitosHtml = '<div style="margin-top:10px;padding:10px 12px;background:#FEF3DC;border:1px solid #EDD59A;border-radius:7px;">'
-        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--cm);margin-bottom:6px;">Dias abonados que debitam BH — ' + bh.diasUteisAbonados + ' dia(s) → −' + minToStr(bh.diasUteisAbonados * 528) + '</div>';
-      bh.detalheDebitos.forEach(function(d) {
-        var dtFmt = new Date(d.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-        debitosHtml += '<div style="font-size:13px;color:var(--ct);padding:2px 0;">• ' + dtFmt + ' — <span class="ab-tag ' + abClass(d.abono) + '">' + d.abono + '</span></div>';
+  var regsPorDataColab = {};
+  allRegs.forEach(function(r) {
+    if (!r.data) return;
+    var p = r.data.split('-');
+    if (p[0] !== fAno || p[1] !== fMes) return;
+    r.funcionarios.forEach(function(f) {
+      if (f.nome !== funcNome) return;
+      if (!regsPorDataColab[r.data]) regsPorDataColab[r.data] = [];
+      regsPorDataColab[r.data].push({ reg: r, func: f });
+    });
+  });
+
+  var stHe50SabC = 0, stHe100DomC = 0, stHe100FerC = 0, stTrabalhadoC = 0;
+  var linhasColab = '';
+
+  for (var diC = new Date(primeiroDia); diC <= ultimoDia; diC.setDate(diC.getDate()+1)) {
+    var dStrC = diC.getFullYear() + '-' + String(diC.getMonth()+1).padStart(2,'0') + '-' + String(diC.getDate()).padStart(2,'0');
+    if (dStrC > hojeStr) continue;
+
+    var dtC  = new Date(dStrC+'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    var dowC = diC.getDay();
+    var isFdsC = (dowC === 0 || dowC === 6);
+
+    if (regsPorDataColab[dStrC]) {
+      regsPorDataColab[dStrC].forEach(function(m) {
+        var f = m.func, r = m.reg;
+        var ab = f.abono || 'Trabalhou';
+        var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
+        var uf   = obraObj ? (obraObj.uf||'') : '';
+        var tipo = tipoDia(dStrC, uf);
+
+        var rowBgC = tipo === 'sabado'  ? 'background:#FFF3E0;'
+                   : tipo === 'domingo' ? 'background:#FCE4EC;'
+                   : tipo === 'feriado' ? 'background:#EDE7F6;'
+                   : ab !== 'Trabalhou' ? 'background:#FFFDE7;'
+                   : '';
+
+        if (ab !== 'Trabalhou') {
+          var tipoAbonoC = getAbonosCustom().find(function(a){ return a.nome === ab; });
+          var debitaC    = tipoAbonoC && tipoAbonoC.debitaBH === true && tipo === 'normal';
+          var liqAbonoC  = debitaC
+            ? '<span style="color:#C62828;font-weight:700;">−' + minToStr(JORNADA_MIN) + '</span>'
+            : '<span style="color:var(--cm);">—</span>';
+          linhasColab += '<div style="display:grid;grid-template-columns:' + COL_BH + ';gap:4px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;' + rowBgC + '">'
+            + '<span style="font-weight:500;">' + dtC + '</span>'
+            + '<span style="color:var(--cm);font-size:11px;">' + r.local + '</span>'
+            + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+            + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+            + '<span><span class="badge b-abono" style="font-size:10px;">' + ab + '</span></span>'
+            + liqAbonoC
+            + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span></div>';
+          return;
+        }
+
+        var jorC = calcJornada(f.entrada, f.saida, dStrC, true, uf, getFuncAdicNot(funcNome));
+        if (!jorC) return;
+
+        if (tipo === 'sabado')  stHe50SabC   += jorC.liquido;
+        if (tipo === 'domingo') stHe100DomC  += jorC.liquido;
+        if (tipo === 'feriado') stHe100FerC  += jorC.liquido;
+        if (tipo === 'normal')  stTrabalhadoC += jorC.liquido;
+
+        var epC = (f.entrada||'').split(':').map(Number);
+        var entMinC = epC[0]*60 + (epC[1]||0);
+        var saiAlmC = jorC.temRefeicao ? fmtHoraColab(entMinC + GATILHO_REF) : '—';
+        var retAlmC = jorC.temRefeicao ? fmtHoraColab(entMinC + GATILHO_REF + REFEICAO_MIN) : '—';
+
+        var heMinC = tipo === 'normal' ? Math.max(0, jorC.extra) : jorC.liquido;
+        var heStrC = heMinC > 0
+          ? '<span style="color:' + (jorC.adPerc === 100 ? '#880E4F' : '#E65100') + ';font-weight:700;">'
+            + minToStr(heMinC) + ' (' + (jorC.adPerc > 0 ? jorC.adPerc : 50) + '%)</span>'
+          : '—';
+        var notStrC = jorC.adicNot > 0 ? '<span style="color:#4527A0;font-weight:700;">+' + minToStr(Math.round(jorC.adicNot)) + '</span>' : '—';
+
+        linhasColab += '<div style="display:grid;grid-template-columns:' + COL_BH + ';gap:4px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;' + rowBgC + '">'
+          + '<span style="font-weight:500;">' + dtC + '</span>'
+          + '<span style="color:var(--cm);font-size:11px;">' + r.local + '</span>'
+          + '<span>' + (f.entrada||'—') + '</span>'
+          + '<span style="color:var(--cm);">' + saiAlmC + '</span>'
+          + '<span style="color:var(--cm);">' + retAlmC + '</span>'
+          + '<span>' + (f.saida||'—') + '</span>'
+          + '<span>—</span>'
+          + '<span style="font-weight:600;">' + minToStr(jorC.liquido) + '</span>'
+          + '<span>' + heStrC + '</span>'
+          + '<span>' + notStrC + '</span>'
+          + '</div>';
       });
-      debitosHtml += '</div>';
+    } else if (isFdsC) {
+      var dowNameC = dowC === 6 ? 'Sábado' : 'Domingo';
+      var wkBgC   = dowC === 6 ? 'background:#FFF3E0;' : 'background:#FCE4EC;';
+      var wkClrC  = dowC === 6 ? '#E65100' : '#880E4F';
+      linhasColab += '<div style="display:grid;grid-template-columns:100px 1fr;gap:4px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;' + wkBgC + 'opacity:0.55;">'
+        + '<span style="color:' + wkClrC + ';font-weight:500;">' + dtC + '</span>'
+        + '<span style="color:var(--cm);font-style:italic;">' + dowNameC + ' — sem registro</span>'
+        + '</div>';
+    } else {
+      linhasColab += '<div style="display:grid;grid-template-columns:' + COL_BH + ';gap:4px;padding:5px 12px;border-bottom:1px solid #FFCDD2;font-size:12px;align-items:center;background:#FFF8F8;">'
+        + '<span style="color:#C62828;font-weight:700;">' + dtC + '</span>'
+        + '<span style="color:#C62828;font-style:italic;">&#9888; Sem registro</span>'
+        + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+        + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+        + '<span style="color:var(--cm);">—</span>'
+        + '<span style="color:#C62828;font-weight:700;">−' + minToStr(JORNADA_MIN) + '</span>'
+        + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+        + '</div>';
     }
+  }
 
-    var fdsHtml = '';
-    if (bh.heFds.length) {
-      var qtdSab = bh.heFds.filter(function(h){ return h.tipo === 'sabado'; }).length;
-      var qtdDomFer = bh.heFds.filter(function(h){ return h.tipo !== 'sabado'; }).length;
-      var totSabMin = bh.heFds.filter(function(h){ return h.tipo === 'sabado'; }).reduce(function(a,h){ return a + h.liquidoMin; }, 0);
-      var totDomFerMin = bh.heFds.filter(function(h){ return h.tipo !== 'sabado'; }).reduce(function(a,h){ return a + h.liquidoMin; }, 0);
-      fdsHtml = '<div style="margin-top:10px;padding:10px 12px;background:var(--az-c);border:1px solid #B8D4ED;border-radius:7px;">'
-        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--az);margin-bottom:6px;">HE fins de semana / feriados (fora do banco)</div>';
-      if (qtdSab > 0)    fdsHtml += '<div style="font-size:13px;color:var(--ct);padding:2px 0;">• ' + qtdSab + ' sábado(s) → <span class="extra-pill">' + minToStr(Math.round(totSabMin)) + ' a receber (+50%)</span></div>';
-      if (qtdDomFer > 0) fdsHtml += '<div style="font-size:13px;color:var(--ct);padding:2px 0;">• ' + qtdDomFer + ' domingo(s)/feriado(s) → <span class="adic-pill">' + minToStr(Math.round(totDomFerMin)) + ' a receber (+100%)</span></div>';
-      fdsHtml += '</div>';
-    }
+  var bhC       = calcBancoHorasMensal(funcNome, parseInt(fMes), parseInt(fAno));
+  var saldoC    = bhC.heBrutaMin;
+  var saldoStrC = (saldoC >= 0 ? '+' : '−') + minToStr(Math.abs(Math.round(saldoC)));
+  var saldoClrC = saldoC >= 0 ? 'color:#2E7D32;' : 'color:#C62828;';
+  var esperadoStrC = minToStr(Math.round(bhC.esperadoMin));
 
-    var alertaNeg = bh.saldoNegativo
-      ? '<div style="margin-top:10px;padding:10px 12px;background:var(--vm-c);border:1px solid #F0C5C3;border-radius:7px;font-size:13px;color:var(--vm);line-height:1.6;">'
-        + '<b>⚠ Saldo negativo — nenhum desconto será aplicado ao seu salário.</b><br>'
-        + 'Este registro documenta que os dias improdutivos superaram as horas extras realizadas no período.'
-        + '</div>'
-      : '';
-
-    bhEl.innerHTML = '<div class="card" style="margin-bottom:16px;">'
-      + '<div class="card-title">Banco de Horas — ' + mesNomeBH + ' ' + fAno + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;">'
-      + '<div class="sum-item"><div class="sum-val">' + minToStr(bh.esperadoMin) + '</div><div class="sum-lbl">Jornada esperada (' + (bh.diasUteisTrabalhados + bh.diasUteisAbonados) + ' × 8h48)</div></div>'
-      + '<div class="sum-item"><div class="sum-val">' + minToStr(Math.round(bh.realizadoMin)) + '</div><div class="sum-lbl">Jornada realizada</div></div>'
-      + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr;gap:8px;">'
-      + '<div class="sum-item" style="background:' + saldoBg + ';"><div class="sum-val" style="color:' + saldoCor + ';">' + saldoStr + '</div><div class="sum-lbl">Saldo HE dias úteis</div></div>'
-      + '</div>'
-      + debitosHtml
-      + fdsHtml
-      + alertaNeg
+  function stBoxC(lbl, val, clr) {
+    return '<div style="background:#fff;border:1px solid var(--cb);border-radius:6px;padding:6px 10px;min-width:78px;">'
+      + '<div style="font-size:9px;text-transform:uppercase;color:var(--cm);font-weight:700;margin-bottom:2px;white-space:nowrap;">' + lbl + '</div>'
+      + '<div style="font-size:13px;font-weight:700;' + (clr||'color:var(--ct);') + '">' + val + '</div>'
       + '</div>';
   }
+
+  var statsGridC = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px 10px;border-bottom:1px solid var(--cb);background:#FAFAF8;">'
+    + stBoxC('HE 50% Sáb',    stHe50SabC  > 0 ? minToStr(Math.round(stHe50SabC))  : '—', stHe50SabC  > 0 ? 'color:#E65100;' : '')
+    + stBoxC('HE 100% Dom',   stHe100DomC > 0 ? minToStr(Math.round(stHe100DomC)) : '—', stHe100DomC > 0 ? 'color:#880E4F;' : '')
+    + stBoxC('HE 100% Fer',   stHe100FerC > 0 ? minToStr(Math.round(stHe100FerC)) : '—', stHe100FerC > 0 ? 'color:#6A1B9A;' : '')
+    + stBoxC('HR Trabalhadas', stTrabalhadoC > 0 ? minToStr(Math.round(stTrabalhadoC)) : '—', 'color:#1565C0;')
+    + stBoxC('HR Esperadas',   esperadoStrC, 'color:var(--ct);')
+    + stBoxC('Resultado Mês',  saldoStrC, saldoClrC)
+    + '</div>';
+
+  var colHdrsC = ['Data','Obra','Início','Saída Alm.','Ret. Alm.','Término','Abono','Líquido','HE','Ad. Not.']
+    .map(function(h){ return '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">' + h + '</span>'; }).join('');
+
+  var mesesNomeBH = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  var mesNomeBH   = mesesNomeBH[parseInt(fMes) - 1] || fMes;
+
+  bhEl.innerHTML = '<div class="banco-card" style="margin-bottom:16px;">'
+    + '<div id="bh-colab-head" style="padding:12px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;background:#FAFAF8;border-bottom:1px solid var(--cb);">'
+    + '<div style="flex:1;"><div class="banco-nome">Banco de Horas — ' + mesNomeBH + ' ' + fAno + '</div></div>'
+    + '<button class="btn-print" id="btn-bh-colab-print" title="Imprimir banco de horas" style="flex-shrink:0;">&#128438;</button>'
+    + '<span class="chev" id="bh-colab-chev">v</span>'
+    + '</div>'
+    + statsGridC
+    + '<div id="bh-colab-body" style="display:none;">'
+    + '<div style="display:grid;grid-template-columns:' + COL_BH + ';gap:4px;padding:5px 12px;background:#F5F5F3;border-bottom:1px solid var(--cb);">'
+    + colHdrsC + '</div>'
+    + linhasColab
+    + '</div></div>';
+
+  document.getElementById('bh-colab-head').addEventListener('click', function(e) {
+    if (e.target.closest('#btn-bh-colab-print')) return;
+    var body = document.getElementById('bh-colab-body');
+    var chev = document.getElementById('bh-colab-chev');
+    var open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    chev.classList.toggle('open', !open);
+  });
+
+  document.getElementById('btn-bh-colab-print').addEventListener('click', function(e) {
+    e.stopPropagation();
+    imprimirBancoHoras([funcNome], fMes, fAno);
+  });
 
   // Filtra registros pelo mês/ano selecionado
   var meusFiltrados = meus.filter(function(m) {
