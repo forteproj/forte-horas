@@ -2687,105 +2687,178 @@ document.getElementById('btn-salvar-edit-reg').addEventListener('click', functio
 
 document.getElementById('btn-banco-gerar').addEventListener('click', renderBancoHoras);
 
-/* Impressão do banco de horas — individual ou em lote */
+/* Impressão do espelho de horas — individual ou em lote */
 function imprimirBancoHoras(nomesList, fMes, fAno) {
   var mesesNome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   var mesNome   = mesesNome[parseInt(fMes) - 1] || fMes;
-  var allRegs   = getRegs().filter(function(r) {
+  var anoN = parseInt(fAno), mesN = parseInt(fMes);
+
+  var allRegs = getRegs().filter(function(r) {
     if (!r.data) return false;
     var p = r.data.split('-');
     return p[0] === fAno && p[1] === fMes;
   });
-  allRegs.sort(function(a, b) { return a.data > b.data ? 1 : -1; });
+
+  var hoje    = new Date();
+  var hojeStr = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
+  var primDia = new Date(anoN, mesN-1, 1);
+  var ultDia  = new Date(anoN, mesN, 0);
+
+  function fmtHP(m) {
+    m = ((m % 1440) + 1440) % 1440;
+    return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+  }
 
   var paginas = '';
   nomesList.forEach(function(funcNome, idx) {
-    var bh      = calcBancoHorasMensal(funcNome, parseInt(fMes), parseInt(fAno));
+    var bh      = calcBancoHorasMensal(funcNome, mesN, anoN);
     var funcObj = getFuncs().find(function(f) { return f.nome === funcNome; });
     var funcao  = funcObj ? (funcObj.funcao || '') : '';
 
-    var rows = '';
+    var regsPorData = {};
     allRegs.forEach(function(r) {
       r.funcionarios.forEach(function(f) {
         if (f.nome !== funcNome) return;
-        var ab      = f.abono || 'Trabalhou';
-        var obraObj = getObras().find(function(o) { return String(o.id) === String(r.obraId); });
-        var uf      = obraObj ? (obraObj.uf || '') : '';
-        var tipo    = tipoDia(r.data, uf);
-        var dt      = new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-        var tipoLabel = { normal: 'Normal', sabado: 'Sáb +50%', domingo: 'Dom +100%', feriado: 'Feriado +100%' }[tipo] || 'Normal';
-        var tipoColor = tipo === 'normal' ? '#333' : (tipo === 'sabado' ? '#E65100' : '#880E4F');
-        if (ab !== 'Trabalhou') {
-          rows += '<tr><td>' + dt + '</td><td style="font-size:9px;color:#666;">' + r.local + '</td>'
-            + '<td style="text-align:center;color:#999;">-</td><td style="text-align:center;color:#999;">-</td>'
-            + '<td style="text-align:center;color:#999;">-</td>'
-            + '<td style="text-align:center;"><span style="background:#FEF3DC;color:#8A6010;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;">' + ab + '</span></td>'
-            + '</tr>';
-          return;
-        }
-        var jor = calcJornada(f.entrada, f.saida, r.data, true, uf, getFuncAdicNot(funcNome));
-        rows += '<tr>'
-          + '<td>' + dt + '</td>'
-          + '<td style="font-size:9px;color:#666;">' + r.local + '</td>'
-          + '<td style="text-align:center;">' + (f.entrada || '-') + '</td>'
-          + '<td style="text-align:center;">' + (f.saida || '-') + '</td>'
-          + '<td style="text-align:center;font-weight:700;">' + (jor ? minToStr(jor.liquido) : '-') + '</td>'
-          + '<td style="text-align:center;color:' + tipoColor + ';font-weight:700;">' + tipoLabel + '</td>'
-          + '</tr>';
+        if (!regsPorData[r.data]) regsPorData[r.data] = [];
+        regsPorData[r.data].push({ reg: r, func: f });
       });
     });
 
-    var saldoCor   = bh.saldoNegativo ? '#C62828' : (bh.heBrutaMin > 0 ? '#2E7D32' : '#555');
-    var saldoStr   = (bh.heBrutaMin >= 0 ? '+' : '') + minToStr(Math.abs(Math.round(bh.heBrutaMin)));
+    var stHe50Sab = 0, stHe100Dom = 0, stHe100Fer = 0, stTrabalhado = 0;
+    var rows = '';
 
-    var debitosHtml = '';
-    if (bh.detalheDebitos.length) {
-      var dRows = bh.detalheDebitos.map(function(d) {
-        var dtf = new Date(d.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-        return '<tr><td>' + dtf + '</td><td>' + d.abono + '</td><td style="text-align:right;color:#8A6010;">−8h48</td></tr>';
-      }).join('');
-      debitosHtml = '<div style="margin-top:8px;">'
-        + '<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#8A6010;margin-bottom:3px;">Abonos que debitaram BH (' + bh.diasUteisAbonados + ' dia(s))</div>'
-        + '<table><thead><tr style="background:#FEF3DC;"><th style="text-align:left;">Data</th><th style="text-align:left;">Motivo</th><th style="text-align:right;">Débito</th></tr></thead>'
-        + '<tbody>' + dRows + '</tbody></table></div>';
+    for (var di = new Date(primDia); di <= ultDia; di.setDate(di.getDate()+1)) {
+      var dStr = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
+      if (dStr > hojeStr) continue;
+      var dt   = new Date(dStr+'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      var dow  = di.getDay();
+      var isFds = (dow === 0 || dow === 6);
+
+      if (regsPorData[dStr]) {
+        regsPorData[dStr].forEach(function(m) {
+          var f = m.func, r = m.reg;
+          var ab = f.abono || 'Trabalhou';
+          var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
+          var uf   = obraObj ? (obraObj.uf||'') : '';
+          var tipo = tipoDia(dStr, uf);
+          var rowBg = tipo === 'sabado'   ? 'background:#FFF3E0;'
+                    : tipo === 'domingo'  ? 'background:#FCE4EC;'
+                    : tipo === 'feriado'  ? 'background:#EDE7F6;'
+                    : ab !== 'Trabalhou' ? 'background:#FFFDE7;'
+                    : '';
+          if (ab !== 'Trabalhou') {
+            var tipoAb = getAbonosCustom().find(function(a){ return a.nome === ab; });
+            var debita = tipoAb && tipoAb.debitaBH === true && tipo === 'normal';
+            var liqAb  = debita ? '<span style="color:#C62828;font-weight:700;">−' + minToStr(JORNADA_MIN) + '</span>' : '—';
+            rows += '<tr style="' + rowBg + '">'
+              + '<td>' + dt + '</td>'
+              + '<td style="font-size:8px;color:#666;">' + r.local + '</td>'
+              + '<td style="text-align:center;color:#bbb;">—</td>'
+              + '<td style="text-align:center;color:#bbb;">—</td>'
+              + '<td style="text-align:center;color:#bbb;">—</td>'
+              + '<td style="text-align:center;color:#bbb;">—</td>'
+              + '<td style="text-align:center;"><span style="background:#FEF3DC;color:#8A6010;padding:1px 5px;border-radius:8px;font-size:8px;font-weight:700;">' + ab + '</span></td>'
+              + '<td style="text-align:center;">' + liqAb + '</td>'
+              + '<td style="text-align:center;color:#bbb;">—</td>'
+              + '<td style="text-align:center;color:#bbb;">—</td>'
+              + '</tr>';
+            return;
+          }
+          var jor = calcJornada(f.entrada, f.saida, dStr, true, uf, getFuncAdicNot(funcNome));
+          if (!jor) return;
+          if (tipo === 'sabado')  stHe50Sab   += jor.liquido;
+          if (tipo === 'domingo') stHe100Dom  += jor.liquido;
+          if (tipo === 'feriado') stHe100Fer  += jor.liquido;
+          if (tipo === 'normal')  stTrabalhado += jor.liquido;
+          var ep = (f.entrada||'').split(':').map(Number);
+          var entMin = ep[0]*60 + (ep[1]||0);
+          var saiAlm = jor.temRefeicao ? fmtHP(entMin + GATILHO_REF) : '—';
+          var retAlm = jor.temRefeicao ? fmtHP(entMin + GATILHO_REF + REFEICAO_MIN) : '—';
+          var heMin  = tipo === 'normal' ? Math.max(0, jor.extra) : jor.liquido;
+          var heStr  = heMin > 0 ? minToStr(heMin) + ' (' + (jor.adPerc > 0 ? jor.adPerc : 50) + '%)' : '—';
+          var heClr  = heMin > 0 ? (jor.adPerc === 100 ? 'color:#880E4F;font-weight:700;' : 'color:#E65100;font-weight:700;') : 'color:#bbb;';
+          var notStr = jor.adicNot > 0 ? '+' + minToStr(Math.round(jor.adicNot)) : '—';
+          var notClr = jor.adicNot > 0 ? 'color:#4527A0;font-weight:700;' : 'color:#bbb;';
+          rows += '<tr style="' + rowBg + '">'
+            + '<td>' + dt + '</td>'
+            + '<td style="font-size:8px;color:#555;">' + r.local + '</td>'
+            + '<td style="text-align:center;">' + (f.entrada||'—') + '</td>'
+            + '<td style="text-align:center;color:#777;">' + saiAlm + '</td>'
+            + '<td style="text-align:center;color:#777;">' + retAlm + '</td>'
+            + '<td style="text-align:center;">' + (f.saida||'—') + '</td>'
+            + '<td style="text-align:center;color:#bbb;">—</td>'
+            + '<td style="text-align:center;font-weight:700;">' + minToStr(jor.liquido) + '</td>'
+            + '<td style="text-align:center;' + heClr + '">' + heStr + '</td>'
+            + '<td style="text-align:center;' + notClr + '">' + notStr + '</td>'
+            + '</tr>';
+        });
+      } else if (isFds) {
+        var dowName = dow === 6 ? 'Sábado' : 'Domingo';
+        var wkBg  = dow === 6 ? 'background:#FFF3E0;' : 'background:#FCE4EC;';
+        var wkClr = dow === 6 ? 'color:#E65100;' : 'color:#880E4F;';
+        rows += '<tr style="' + wkBg + 'opacity:0.65;">'
+          + '<td style="' + wkClr + 'font-weight:500;">' + dt + '</td>'
+          + '<td colspan="9" style="color:#999;font-style:italic;">' + dowName + ' — sem registro</td>'
+          + '</tr>';
+      } else {
+        rows += '<tr style="background:#FFF8F8;">'
+          + '<td style="color:#C62828;font-weight:700;">' + dt + '</td>'
+          + '<td style="color:#C62828;font-style:italic;">⚠ Sem registro</td>'
+          + '<td style="text-align:center;color:#ccc;">—</td>'
+          + '<td style="text-align:center;color:#ccc;">—</td>'
+          + '<td style="text-align:center;color:#ccc;">—</td>'
+          + '<td style="text-align:center;color:#ccc;">—</td>'
+          + '<td style="text-align:center;color:#ccc;">—</td>'
+          + '<td style="text-align:center;color:#C62828;font-weight:700;">−' + minToStr(JORNADA_MIN) + '</td>'
+          + '<td style="text-align:center;color:#ccc;">—</td>'
+          + '<td style="text-align:center;color:#ccc;">—</td>'
+          + '</tr>';
+      }
     }
 
-    var fdsHtml = '';
-    if (bh.heFds.length) {
-      var qtdSab      = bh.heFds.filter(function(h) { return h.tipo === 'sabado'; }).length;
-      var totSabMin   = bh.heFds.filter(function(h) { return h.tipo === 'sabado'; }).reduce(function(a, h) { return a + h.liquidoMin; }, 0);
-      var qtdDomFer   = bh.heFds.filter(function(h) { return h.tipo !== 'sabado'; }).length;
-      var totDomFerMin= bh.heFds.filter(function(h) { return h.tipo !== 'sabado'; }).reduce(function(a, h) { return a + h.liquidoMin; }, 0);
-      fdsHtml = '<div style="margin-top:8px;padding:6px 8px;border:1px solid #B8D4ED;background:#EAF2FB;border-radius:4px;">'
-        + '<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#1565C0;margin-bottom:3px;">HE fins de semana / feriados (fora do banco)</div>'
-        + (qtdSab    > 0 ? '<div style="font-size:9px;">• ' + qtdSab    + ' sábado(s) — ' + minToStr(Math.round(totSabMin))    + ' a receber (+50%)</div>' : '')
-        + (qtdDomFer > 0 ? '<div style="font-size:9px;">• ' + qtdDomFer + ' domingo(s)/feriado(s) — ' + minToStr(Math.round(totDomFerMin)) + ' a receber (+100%)</div>' : '')
-        + '</div>';
-    }
+    var saldoC   = bh.heBrutaMin;
+    var saldoStr = (saldoC >= 0 ? '+' : '−') + minToStr(Math.abs(Math.round(saldoC)));
+    var saldoClr = saldoC >= 0 ? '#2E7D32' : '#C62828';
 
-    var alertaNeg = bh.saldoNegativo
-      ? '<div style="margin-top:8px;padding:6px 8px;border:1px solid #F0C5C3;background:#FDECEA;border-radius:4px;font-size:9px;color:#C62828;line-height:1.5;">'
-        + '<b>⚠ Saldo negativo — nenhum desconto será aplicado ao salário.</b> Este registro documenta que os dias improdutivos superaram as HE realizadas no período.'
-        + '</div>'
-      : '';
+    function stBP(lbl, val, clr) {
+      return '<div class="stat-box"' + (clr ? ' style="color:' + clr + ';"' : '') + '>'
+        + '<div class="stat-val">' + val + '</div>'
+        + '<div class="stat-lbl">' + lbl + '</div></div>';
+    }
+    var statsHtml = '<div class="stats-grid">'
+      + stBP('HE 50% Sáb',    stHe50Sab  > 0 ? minToStr(Math.round(stHe50Sab))  : '—', stHe50Sab  > 0 ? '#E65100' : null)
+      + stBP('HE 100% Dom',   stHe100Dom > 0 ? minToStr(Math.round(stHe100Dom)) : '—', stHe100Dom > 0 ? '#880E4F' : null)
+      + stBP('HE 100% Fer',   stHe100Fer > 0 ? minToStr(Math.round(stHe100Fer)) : '—', stHe100Fer > 0 ? '#6A1B9A' : null)
+      + stBP('HR Trabalhadas', stTrabalhado > 0 ? minToStr(Math.round(stTrabalhado)) : '—', '#1565C0')
+      + stBP('HR Esperadas',   minToStr(Math.round(bh.esperadoMin)), null)
+      + stBP('Resultado Mês',  saldoStr, saldoClr)
+      + '</div>';
+
+    var resumoHtml = '<div style="margin-top:10px;padding:7px 10px;border:1px solid #ddd;border-radius:5px;background:#FAFAF8;">'
+      + '<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:5px;">Resumo do Mês</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:14px;font-size:9px;">'
+      + '<span>HR Trabalhadas: <b>' + (stTrabalhado > 0 ? minToStr(Math.round(stTrabalhado)) : '—') + '</b></span>'
+      + '<span>HR Esperadas: <b>' + minToStr(Math.round(bh.esperadoMin)) + '</b></span>'
+      + '<span>Resultado: <b style="color:' + saldoClr + ';">' + saldoStr + '</b></span>'
+      + (stHe50Sab  > 0 ? '<span>HE Sáb (+50%): <b style="color:#E65100;">'  + minToStr(Math.round(stHe50Sab))  + '</b></span>' : '')
+      + (stHe100Dom > 0 ? '<span>HE Dom (+100%): <b style="color:#880E4F;">' + minToStr(Math.round(stHe100Dom)) + '</b></span>' : '')
+      + (stHe100Fer > 0 ? '<span>HE Fer (+100%): <b style="color:#6A1B9A;">' + minToStr(Math.round(stHe100Fer)) + '</b></span>' : '')
+      + '</div></div>';
 
     var pageBreak = idx < nomesList.length - 1 ? 'page-break-after:always;' : '';
-
     paginas += '<div style="' + pageBreak + '">'
       + '<div class="hdr"><div><div class="hdr-title">Espelho de Horas Mensal — FORTE</div>'
       + '<div class="hdr-sub">' + funcNome + (funcao ? ' &nbsp;|&nbsp; ' + funcao : '') + ' &nbsp;|&nbsp; ' + mesNome + ' / ' + fAno + '</div></div>'
       + '<div class="hdr-date">Gerado em ' + new Date().toLocaleDateString('pt-BR') + '</div></div>'
-      + '<div class="stats-grid">'
-      + '<div class="stat-box"><div class="stat-val">' + minToStr(bh.esperadoMin) + '</div><div class="stat-lbl">Esperado</div></div>'
-      + '<div class="stat-box"><div class="stat-val">' + minToStr(Math.round(bh.realizadoMin)) + '</div><div class="stat-lbl">Realizado</div></div>'
-      + '<div class="stat-box" style="color:' + saldoCor + ';"><div class="stat-val">' + saldoStr + '</div><div class="stat-lbl">Saldo BH</div></div>'
-      + '<div class="stat-box" style="color:#1565C0;"><div class="stat-val">' + (bh.totalHeFdsMin > 0 ? minToStr(Math.round(bh.totalHeFdsMin)) : '-') + '</div><div class="stat-lbl">HE FDS</div></div>'
-      + '</div>'
-      + alertaNeg + debitosHtml + fdsHtml
-      + '<table style="margin-top:10px;"><thead><tr>'
-      + '<th>Data</th><th>Obra</th><th style="text-align:center;">Entrada</th><th style="text-align:center;">Saída</th>'
-      + '<th style="text-align:center;">Líquido</th><th style="text-align:center;">Tipo dia</th>'
+      + statsHtml
+      + '<table><thead><tr>'
+      + '<th>Data</th><th>Obra</th>'
+      + '<th style="text-align:center;">Início</th><th style="text-align:center;">Saída Alm.</th>'
+      + '<th style="text-align:center;">Ret. Alm.</th><th style="text-align:center;">Término</th>'
+      + '<th style="text-align:center;">Abono</th><th style="text-align:center;">Líquido</th>'
+      + '<th style="text-align:center;">HE</th><th style="text-align:center;">Ad. Not.</th>'
       + '</tr></thead><tbody>' + rows + '</tbody></table>'
+      + resumoHtml
       + '<div class="docsign">'
       + '<div class="dbox"><div class="dline"></div><div class="dlbl">Assinatura do Colaborador</div><div class="dnome">' + funcNome + '</div></div>'
       + '<div class="dbox"><div class="dline"></div><div class="dlbl">Assinatura FORTE</div><div class="dnome">Responsável</div></div>'
@@ -2794,21 +2867,20 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
       + '</div>';
   });
 
-  var css = '@page{size:A4 portrait;margin:12mm 10mm}'
+  var css = '@page{size:A4 landscape;margin:10mm 8mm}'
     + '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
-    + 'body{font-family:Arial,sans-serif;color:#222;font-size:9px;margin:0;padding:0}'
+    + 'body{font-family:Arial,sans-serif;color:#222;font-size:8.5px;margin:0;padding:0}'
     + '.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;border-bottom:2px solid #F5A623;padding-bottom:6px}'
     + '.hdr-title{font-size:13px;font-weight:700;color:#1E1C18;margin-bottom:2px}'
     + '.hdr-sub{font-size:9px;color:#666}'
     + '.hdr-date{font-size:8px;color:#999;text-align:right}'
-    + '.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px}'
-    + '.stat-box{background:#F5F5F3;border-radius:4px;padding:5px 8px;text-align:center}'
-    + '.stat-val{font-size:13px;font-weight:700;line-height:1}'
-    + '.stat-lbl{font-size:8px;color:#666;text-transform:uppercase;margin-top:2px;letter-spacing:.3px}'
-    + 'table{width:100%;border-collapse:collapse}'
-    + 'th{background:#F5A623;padding:4px 5px;border:1px solid #ddd;text-align:left;font-size:8px;font-weight:700}'
-    + 'td{padding:3px 5px;border:1px solid #eee;font-size:8.5px;vertical-align:middle}'
-    + 'tr:nth-child(even) td{background:#FAFAF8}'
+    + '.stats-grid{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}'
+    + '.stat-box{background:#F5F5F3;border-radius:4px;padding:5px 10px;text-align:center;min-width:80px}'
+    + '.stat-val{font-size:12px;font-weight:700;line-height:1}'
+    + '.stat-lbl{font-size:7px;color:#666;text-transform:uppercase;margin-top:2px;letter-spacing:.3px}'
+    + 'table{width:100%;border-collapse:collapse;margin-top:0}'
+    + 'th{background:#F5A623;padding:3px 4px;border:1px solid #ddd;text-align:left;font-size:7.5px;font-weight:700}'
+    + 'td{padding:2px 4px;border:1px solid #eee;font-size:8px;vertical-align:middle}'
     + '.docsign{margin-top:14px;border-top:1px dashed #ccc;padding-top:10px;display:flex;justify-content:space-between}'
     + '.dbox{text-align:center}.dline{border-bottom:1px solid #333;width:200px;margin-bottom:3px;height:24px}'
     + '.dlbl{font-size:8px;color:#666}.dnome{font-size:8px;font-weight:700;color:#333;margin-top:2px}'
