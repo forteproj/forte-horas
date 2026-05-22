@@ -679,7 +679,7 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
     <div class="col-stats" id="col-stats"></div>
     <div id="col-faltas-wrap"></div>
     <div class="hist-bar" style="margin-bottom:16px;">
-      <input type="text" id="col-busca" placeholder="Buscar por obra ou data..." />
+      <input type="text" id="col-busca" placeholder="Buscar por obra ou data..." style="display:none;" />
       <select id="col-mes" style="min-width:130px;">
         <option value="01">Janeiro</option>
         <option value="02">Fevereiro</option>
@@ -3775,39 +3775,11 @@ function renderResumoColab() {
 
   var fMes = document.getElementById('col-mes').value;
   var fAno = document.getElementById('col-ano').value;
-  var busca = (document.getElementById('col-busca').value || '').toLowerCase();
 
   var allRegs = getRegs();
-  var meus = [];
-  allRegs.forEach(function(r) {
-    r.funcionarios.forEach(function(f) {
-      if (f.nome === funcNome) meus.push({ reg: r, func: f });
-    });
-  });
 
-  // Stats
-  var totalDias  = meus.length;
-  var totalAbono = meus.filter(function(m){ return (m.func.abono || 'Trabalhou') !== 'Trabalhou'; }).length;
-  var totalHe50  = 0;
-  var totalHe100 = 0;
-  var totalHeNot = 0; // HE noturna acumulada (dias normais)
-  meus.forEach(function(m) {
-    if ((m.func.abono || 'Trabalhou') !== 'Trabalhou') return;
-    var obraObj = getObras().find(function(o){ return String(o.id) === String(m.reg.obraId); });
-    var uf = obraObj ? (obraObj.uf || '') : '';
-    var temRef = m.func.refeicao !== undefined ? m.func.refeicao : true;
-    var jor = calcJornada(m.func.entrada, m.func.saida, m.reg.data, temRef, uf, getFuncAdicNot(m.func.nome));
-    if (!jor) return;
-    if (jor.adPerc === 50)  totalHe50  += (jor.liquido || 0);
-    if (jor.adPerc === 100) totalHe100 += (jor.liquido || 0);
-    if (jor.heNot > 0)      totalHeNot += jor.heNot;
-  });
-  document.getElementById('col-stats').innerHTML =
-    '<div class="col-stat"><div class="col-stat-num">' + totalDias + '</div><div class="col-stat-lbl">Registros</div></div>' +
-    '<div class="col-stat"><div class="col-stat-num">' + totalAbono + '</div><div class="col-stat-lbl">Abonos</div></div>' +
-    '<div class="col-stat"><div class="col-stat-num" style="color:#E65100;">' + (totalHe50  > 0 ? minToStr(Math.round(totalHe50))  : '-') + '</div><div class="col-stat-lbl">HE 50%</div></div>' +
-    '<div class="col-stat"><div class="col-stat-num" style="color:#880E4F;">' + (totalHe100 > 0 ? minToStr(Math.round(totalHe100)) : '-') + '</div><div class="col-stat-lbl">HE 100%</div></div>' +
-    '<div class="col-stat"><div class="col-stat-num" style="color:#4527A0;">' + (totalHeNot > 0 ? minToStr(Math.round(totalHeNot)) : '-') + '</div><div class="col-stat-lbl">HE Not.</div></div>';
+  document.getElementById('col-stats').innerHTML = '';
+  document.getElementById('col-faltas-wrap').innerHTML = '';
 
   // CARD DE FALTAS — dias úteis do mês/ano selecionado sem registro
   var wrapFaltas = document.getElementById('col-faltas-wrap');
@@ -3818,7 +3790,6 @@ function renderResumoColab() {
     });
   });
 
-  // Percorre todos os dias úteis do mês/ano selecionado
   var anoFil = parseInt(fAno), mesFil = parseInt(fMes);
   var primeiroDia = new Date(anoFil, mesFil - 1, 1);
   var ultimoDia   = new Date(anoFil, mesFil, 0);
@@ -3828,44 +3799,6 @@ function renderResumoColab() {
       + String(h.getMonth() + 1).padStart(2, '0') + '-'
       + String(h.getDate()).padStart(2, '0');
   })();
-
-  var faltando = [];
-  for (var di = new Date(primeiroDia); di <= ultimoDia; di.setDate(di.getDate() + 1)) {
-    var dtStr = di.getFullYear() + '-'
-      + String(di.getMonth() + 1).padStart(2, '0') + '-'
-      + String(di.getDate()).padStart(2, '0');
-    if (dtStr >= hojeStr) break; // só mostra dias anteriores ao dia atual
-    if (isFeriado(dtStr, '')) continue;
-    if (!diasComReg[dtStr]) faltando.push(dtStr);
-  }
-
-  if (faltando.length === 0) {
-    wrapFaltas.innerHTML = '';
-  } else {
-    var fHtml = '<div class="col-faltas-card">'
-      + '<div class="col-faltas-head" id="col-faltas-head">'
-      + '<div class="col-faltas-lbl">Dias sem marcacao (' + faltando.length + ')</div>'
-      + '<span class="chev" id="col-faltas-chev">v</span>'
-      + '</div>'
-      + '<div class="col-faltas-body" id="col-faltas-body" style="display:none;">';
-    faltando.forEach(function(dtStr) {
-      var dtFmt = new Date(dtStr + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
-      fHtml += '<div class="col-falta-item">'
-        + '<span class="col-falta-data">' + dtFmt + '</span>'
-        + '<span class="col-falta-tipo">Sem registro</span>'
-        + '</div>';
-    });
-    fHtml += '</div></div>';
-    wrapFaltas.innerHTML = fHtml;
-
-    document.getElementById('col-faltas-head').addEventListener('click', function() {
-      var body = document.getElementById('col-faltas-body');
-      var chev = document.getElementById('col-faltas-chev');
-      var open = body.style.display !== 'none';
-      body.style.display = open ? 'none' : 'block';
-      chev.classList.toggle('open', !open);
-    });
-  }
 
   // ── BANCO DE HORAS DO MÊS ──────────────────────────────────────────────────
   var bhEl = document.getElementById('col-bh-card');
@@ -4018,187 +3951,24 @@ function renderResumoColab() {
   var mesNomeBH   = mesesNomeBH[parseInt(fMes) - 1] || fMes;
 
   bhEl.innerHTML = '<div class="banco-card" style="margin-bottom:16px;">'
-    + '<div id="bh-colab-head" style="padding:12px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;background:#FAFAF8;border-bottom:1px solid var(--cb);">'
+    + '<div style="padding:12px 16px;display:flex;align-items:center;gap:10px;background:#FAFAF8;border-bottom:1px solid var(--cb);">'
     + '<div style="flex:1;"><div class="banco-nome">Espelho de Horas Mensal — ' + mesNomeBH + ' ' + fAno + '</div></div>'
-    + '<button class="btn-print" id="btn-bh-colab-print" title="Imprimir banco de horas" style="flex-shrink:0;">&#128438;</button>'
-    + '<span class="chev" id="bh-colab-chev">v</span>'
+    + '<button class="btn-print" id="btn-bh-colab-print" title="Imprimir espelho de horas" style="flex-shrink:0;">&#128438;</button>'
     + '</div>'
     + statsGridC
-    + '<div id="bh-colab-body" style="display:none;">'
+    + '<div id="bh-colab-body">'
     + '<div style="display:grid;grid-template-columns:' + COL_BH + ';gap:4px;padding:5px 12px;background:#F5F5F3;border-bottom:1px solid var(--cb);">'
     + colHdrsC + '</div>'
     + linhasColab
     + '</div></div>';
-
-  document.getElementById('bh-colab-head').addEventListener('click', function(e) {
-    if (e.target.closest('#btn-bh-colab-print')) return;
-    var body = document.getElementById('bh-colab-body');
-    var chev = document.getElementById('bh-colab-chev');
-    var open = body.style.display !== 'none';
-    body.style.display = open ? 'none' : 'block';
-    chev.classList.toggle('open', !open);
-  });
 
   document.getElementById('btn-bh-colab-print').addEventListener('click', function(e) {
     e.stopPropagation();
     imprimirBancoHoras([funcNome], fMes, fAno);
   });
 
-  // Filtra registros pelo mês/ano selecionado
-  var meusFiltrados = meus.filter(function(m) {
-    if (!m.reg.data) return false;
-    var p = m.reg.data.split('-');
-    return p[0] === fAno && p[1] === fMes;
-  });
-
-  // Filtro busca sobre o mês filtrado
-  if (busca) {
-    meusFiltrados = meusFiltrados.filter(function(m) {
-      return m.reg.local.toLowerCase().indexOf(busca) >= 0
-        || (m.reg.data || '').indexOf(busca) >= 0;
-    });
-  }
-
-  // Ordena mais recente primeiro
-  meusFiltrados.sort(function(a,b){ return (a.reg.data > b.reg.data) ? -1 : 1; });
-
-  var el = document.getElementById('col-lista-regs');
-  if (!meusFiltrados.length) {
-    el.innerHTML = '<div class="empty"><div class="ico">-</div><p>Nenhum registro encontrado.</p></div>';
-    return;
-  }
-
-  // Botão imprimir + cards — tudo em uma só atribuição para evitar perda de listeners
-  var html = '<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">'
-    + '<button class="btn-print" id="btn-imprimir-colab" data-imp-colab="1" style="padding:8px 16px;font-size:13px;">&#128438; Imprimir Resumo do Mês</button>'
-    + '</div>';
-
-  meusFiltrados.forEach(function(m, idx) {
-    var r = m.reg, f = m.func;
-    var dt = r.data ? new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
-    var ab = f.abono || 'Trabalhou';
-    var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
-    var uf = obraObj ? (obraObj.uf || '') : '';
-    var temRef = f.refeicao !== undefined ? f.refeicao : true;
-    var jor = ab === 'Trabalhou' ? calcJornada(f.entrada, f.saida, r.data, temRef, uf, getFuncAdicNot(f.nome)) : null;
-    var tipo = tipoDia(r.data, uf);
-    var diaClasse = { normal: 'dia-normal', sabado: 'dia-sabado', domingo: 'dia-domingo', feriado: 'dia-feriado' }[tipo] || 'dia-normal';
-
-    // Badge situacao
-    var sitBadge = ab !== 'Trabalhou'
-      ? '<span class="badge b-abono">' + ab + '</span>'
-      : (jor && jor.extra > 0 && (sessao.tipo === 'admin' || jor.tipo !== 'normal')
-          ? '<span class="badge" style="background:#FFF3E0;color:#E65100;">+HE</span>'
-          : '<span class="badge b-norm">Normal</span>');
-
-    // Ajustes deste funcionario neste registro
-    var ajsFunc = (r.ajustes || []).filter(function(a){ return a.regId === r.id && a.funcNome === funcNome; });
-    var ajBox = '';
-    if (ajsFunc.length > 0) {
-      ajBox = '<div class="ajuste-box"><div class="ajuste-box-titulo">Sua solicitacao</div>';
-      ajsFunc.forEach(function(aj) {
-        ajBox += '<div class="ajuste-msg">' + aj.msg + '</div>'
-          + '<span class="ajuste-status ' + (aj.status === 'pendente' ? 'aj-pend' : 'aj-res') + '">' + (aj.status === 'pendente' ? 'Aguardando' : 'Resolvido') + '</span>';
-      });
-      ajBox += '</div>';
-    }
-
-    // Pode solicitar se nao tiver pendente
-    var temPend = ajsFunc.some(function(a){ return a.status === 'pendente'; });
-    var btnSol = !temPend
-      ? '<button class="btn-solicitar" data-sol-reg="' + r.id + '" data-sol-idx="' + idx + '">Solicitar ajuste neste registro</button>'
-      + '<div class="solicitar-area" id="sol-area-' + idx + '">'
-      + '<textarea id="sol-txt-' + idx + '" placeholder="Descreva o ajuste necessario..."></textarea>'
-      + '<button class="btn-enviar-solicitacao" data-enviar-sol="' + r.id + '" data-enviar-idx="' + idx + '">Enviar solicitacao</button>'
-      + '</div>'
-      : '';
-
-    html += '<div class="col-reg-card">'
-      + '<div class="col-reg-head" data-colidx="' + idx + '">'
-      + '<div><div class="col-reg-data">' + dt + ' ' + sitBadge + '</div><div class="col-reg-obra">' + r.local + '</div></div>'
-      + '<span class="chev" id="col-chev-' + idx + '">v</span>'
-      + '</div>'
-      + '<div class="col-reg-body" id="col-body-' + idx + '">'
-      + '<div class="dia-strip ' + diaClasse + '" style="margin:0 -16px;margin-top:-1px;border-radius:0;">'
-      + ({ normal: 'Dia Normal', sabado: 'Sabado +50%', domingo: 'Domingo +100%', feriado: 'Feriado +100%' }[tipo] || 'Normal')
-      + '</div>'
-      + '<div class="col-detalhe-row" style="margin-top:12px;">'
-      + (ab === 'Trabalhou'
-          ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">Entrada</div><div class="col-detalhe-val">' + (f.entrada||'-') + '</div></div>'
-          + '<div class="col-detalhe-item"><div class="col-detalhe-lbl">Saida</div><div class="col-detalhe-val">' + (f.saida||'-') + '</div></div>'
-          + '<div class="col-detalhe-item"><div class="col-detalhe-lbl">H. Liquida</div><div class="col-detalhe-val">' + (jor ? minToStr(jor.liquido) : '-') + '</div></div>'
-          + (jor && jor.tipo === 'normal' && jor.extra > 0 && sessao.tipo === 'admin'
-              ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">HE Dia Normal</div><div class="col-detalhe-val"><span class="he-norm-pill">+' + minToStr(jor.extra) + '</span></div></div>'
-              : '')
-          + (jor && jor.heNot > 0
-              ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">HE Noturna</div><div class="col-detalhe-val"><span class="he-not-pill">+' + minToStr(jor.heNot) + '</span></div></div>'
-              : '')
-          + (jor && jor.heDiu > 0 && jor.tipo === 'normal'
-              ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">HE Diurna</div><div class="col-detalhe-val"><span class="he-norm-pill">+' + minToStr(jor.heDiu) + '</span></div></div>'
-              : '')
-          + (jor && jor.adPerc === 50
-              ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">HE 50%</div><div class="col-detalhe-val"><span class="he50-pill">' + minToStr(jor.liquido) + '</span></div></div>'
-              : '')
-          + (jor && jor.adPerc === 100
-              ? '<div class="col-detalhe-item"><div class="col-detalhe-lbl">HE 100%</div><div class="col-detalhe-val"><span class="he100-pill">' + minToStr(jor.liquido) + '</span></div></div>'
-              : '')
-          : '<div class="col-detalhe-item"><div class="col-detalhe-lbl">Situacao</div><div class="col-detalhe-val"><span class="ab-tag ' + abClass(ab) + '">' + ab + '</span></div></div>')
-      + '</div>'
-      + (r.obs ? '<div class="reg-obs" style="margin-top:8px;"><strong>Obs:</strong> ' + r.obs + '</div>' : '')
-      + ajBox
-      + btnSol
-      + '</div></div>';
-  });
-  el.innerHTML = html;
+  document.getElementById('col-lista-regs').innerHTML = '';
 }
-document.getElementById('col-lista-regs').addEventListener('click', function(e) {
-  // Imprimir resumo do colaborador
-  var btnImp = e.target.closest('[data-imp-colab]');
-  if (btnImp) {
-    var fM = document.getElementById('col-mes').value;
-    var fA = document.getElementById('col-ano').value;
-    var fN = sessao.funcNome || sessao.nome;
-    imprimirResumoColab(fN, fM, fA);
-    return;
-  }
-  var head = e.target.closest('.col-reg-head');
-  if (head && !e.target.closest('button')) {
-    var idx = head.dataset.colidx;
-    document.getElementById('col-body-' + idx).classList.toggle('open');
-    document.getElementById('col-chev-' + idx).classList.toggle('open');
-  }
-  // Abrir area de solicitacao
-  var btnSol = e.target.closest('[data-sol-reg]');
-  if (btnSol) {
-    var idx2 = btnSol.dataset.solIdx;
-    var area = document.getElementById('sol-area-' + idx2);
-    if (area) area.classList.toggle('open');
-  }
-  // Enviar solicitacao
-  var btnEnv = e.target.closest('[data-enviar-sol]');
-  if (btnEnv) {
-    var rid3  = Number(btnEnv.dataset.enviarSol);
-    var idx3  = btnEnv.dataset.enviarIdx;
-    var txt   = (document.getElementById('sol-txt-' + idx3) || {}).value || '';
-    if (!txt.trim()) { toast('Escreva a solicitacao!', 'err'); return; }
-    var regsAll2 = getRegs();
-    for (var ri2 = 0; ri2 < regsAll2.length; ri2++) {
-      if (regsAll2[ri2].id === rid3) {
-        if (!regsAll2[ri2].ajustes) regsAll2[ri2].ajustes = [];
-        regsAll2[ri2].ajustes.push({
-          regId: rid3, funcNome: sessao.funcNome || sessao.nome,
-          autor: sessao.nome, msg: txt.trim(),
-          data: new Date().toLocaleDateString('pt-BR'),
-          status: 'pendente'
-        });
-        break;
-      }
-    }
-    sset('forte_regs', regsAll2);
-    toast('Solicitacao enviada!', 'ok');
-    renderResumoColab();
-  }
-});
 
 document.getElementById('col-busca').addEventListener('input', renderResumoColab);
 document.getElementById('col-mes').addEventListener('change', renderResumoColab);
