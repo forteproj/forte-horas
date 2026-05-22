@@ -2795,6 +2795,8 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
     });
 
     var stHe50Sab = 0, stHe100Dom = 0, stHe100Fer = 0, stTrabalhado = 0;
+    var totalAdicNot = 0;
+    var abonosCont = {};
     var rows = '';
 
     for (var di = new Date(primDia); di <= ultDia; di.setDate(di.getDate()+1)) {
@@ -2817,6 +2819,7 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
                     : ab !== 'Trabalhou' ? 'background:#FFFDE7;'
                     : '';
           if (ab !== 'Trabalhou') {
+            abonosCont[ab] = (abonosCont[ab] || 0) + 1;
             var tipoAb = getAbonosCustom().find(function(a){ return a.nome === ab; });
             var debita = tipoAb && tipoAb.debitaBH === true && tipo === 'normal';
             var liqAb  = debita ? '<span style="color:#C62828;font-weight:700;">−' + minToStr(JORNADA_MIN) + '</span>' : '—';
@@ -2840,6 +2843,7 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
           if (tipo === 'domingo') stHe100Dom  += jor.liquido;
           if (tipo === 'feriado') stHe100Fer  += jor.liquido;
           if (tipo === 'normal')  stTrabalhado += jor.liquido;
+          totalAdicNot += jor.adicNot || 0;
           var ep = (f.entrada||'').split(':').map(Number);
           var entMin = ep[0]*60 + (ep[1]||0);
           var saiAlm = jor.temRefeicao ? fmtHP(entMin + GATILHO_REF) : '—';
@@ -2904,15 +2908,20 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
       + stBP('Resultado Mês',  saldoStr, saldoClr)
       + '</div>';
 
+    var totalAbonos = Object.keys(abonosCont).reduce(function(s, k){ return s + abonosCont[k]; }, 0);
+    var abonosDetalhe = Object.keys(abonosCont).map(function(k){
+      return String(abonosCont[k]).padStart(2,'0') + ' ' + k;
+    }).join(', ');
+    var abonosStr = totalAbonos > 0
+      ? totalAbonos + (abonosDetalhe ? ' (' + abonosDetalhe + ')' : '')
+      : '—';
+    var adicNotStr = totalAdicNot > 0 ? minToStr(Math.round(totalAdicNot)) : '—';
+
     var resumoHtml = '<div style="margin-top:10px;padding:7px 10px;border:1px solid #ddd;border-radius:5px;background:#FAFAF8;">'
-      + '<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:5px;">Resumo do Mês</div>'
-      + '<div style="display:flex;flex-wrap:wrap;gap:14px;font-size:9px;">'
-      + '<span>HR Trabalhadas: <b>' + (stTrabalhado > 0 ? minToStr(Math.round(stTrabalhado)) : '—') + '</b></span>'
-      + '<span>HR Esperadas: <b>' + minToStr(Math.round(bh.esperadoMin)) + '</b></span>'
-      + '<span>Resultado: <b style="color:' + saldoClr + ';">' + saldoStr + '</b></span>'
-      + (stHe50Sab  > 0 ? '<span>HE Sáb (+50%): <b style="color:#E65100;">'  + minToStr(Math.round(stHe50Sab))  + '</b></span>' : '')
-      + (stHe100Dom > 0 ? '<span>HE Dom (+100%): <b style="color:#880E4F;">' + minToStr(Math.round(stHe100Dom)) + '</b></span>' : '')
-      + (stHe100Fer > 0 ? '<span>HE Fer (+100%): <b style="color:#6A1B9A;">' + minToStr(Math.round(stHe100Fer)) + '</b></span>' : '')
+      + '<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:6px;">Resumo do Mês</div>'
+      + '<div style="display:flex;flex-direction:column;gap:4px;font-size:9px;">'
+      + '<span>Dias abonados: <b>' + abonosStr + '</b></span>'
+      + '<span>Adicional noturno (CLT art.73): <b style="color:#4527A0;">' + adicNotStr + '</b></span>'
       + '</div></div>';
 
     var pageBreak = idx < nomesList.length - 1 ? 'page-break-after:always;' : '';
@@ -2921,7 +2930,9 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
       + '<div class="hdr-sub">' + funcNome + (funcao ? ' &nbsp;|&nbsp; ' + funcao : '') + ' &nbsp;|&nbsp; ' + mesNome + ' / ' + fAno + '</div></div>'
       + '<div class="hdr-date">Gerado em ' + new Date().toLocaleDateString('pt-BR') + '</div></div>'
       + statsHtml
-      + '<table><thead><tr>'
+      + '<table>'
+      + '<colgroup><col class="c-data"><col class="c-obra"><col class="c-hora"><col class="c-hora"><col class="c-hora"><col class="c-hora"><col class="c-abono"><col class="c-liq"><col class="c-he"><col class="c-not"></colgroup>'
+      + '<thead><tr>'
       + '<th>Data</th><th>Obra</th>'
       + '<th style="text-align:center;">Início</th><th style="text-align:center;">Saída Alm.</th>'
       + '<th style="text-align:center;">Ret. Alm.</th><th style="text-align:center;">Término</th>'
@@ -2937,9 +2948,9 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
       + '</div>';
   });
 
-  var css = '@page{size:A4 landscape;margin:10mm 8mm}'
+  var css = '@page{size:A4 landscape;margin:8mm 8mm 8mm 8mm}'
     + '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
-    + 'body{font-family:Arial,sans-serif;color:#222;font-size:8.5px;margin:0;padding:0}'
+    + 'html,body{width:277mm;margin:0;padding:0;font-family:Arial,sans-serif;color:#222;font-size:8px;}'
     + '.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;border-bottom:2px solid #F5A623;padding-bottom:6px}'
     + '.hdr-title{font-size:13px;font-weight:700;color:#1E1C18;margin-bottom:2px}'
     + '.hdr-sub{font-size:9px;color:#666}'
@@ -2948,9 +2959,10 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
     + '.stat-box{background:#F5F5F3;border-radius:4px;padding:5px 10px;text-align:center;min-width:80px}'
     + '.stat-val{font-size:12px;font-weight:700;line-height:1}'
     + '.stat-lbl{font-size:7px;color:#666;text-transform:uppercase;margin-top:2px;letter-spacing:.3px}'
-    + 'table{width:100%;border-collapse:collapse;margin-top:0}'
-    + 'th{background:#F5A623;padding:3px 4px;border:1px solid #ddd;text-align:left;font-size:7.5px;font-weight:700}'
-    + 'td{padding:2px 4px;border:1px solid #eee;font-size:8px;vertical-align:middle}'
+    + 'table{width:100%;border-collapse:collapse;margin-top:0;table-layout:fixed}'
+    + 'col.c-data{width:60px}col.c-obra{width:auto}col.c-hora{width:44px}col.c-abono{width:60px}col.c-liq{width:52px}col.c-he{width:68px}col.c-not{width:46px}'
+    + 'th{background:#F5A623;padding:3px 4px;border:1px solid #ddd;text-align:left;font-size:7.5px;font-weight:700;overflow:hidden}'
+    + 'td{padding:2px 4px;border:1px solid #eee;font-size:7.5px;vertical-align:middle;overflow:hidden;white-space:nowrap}'
     + '.docsign{margin-top:14px;border-top:1px dashed #ccc;padding-top:10px;display:flex;justify-content:space-between}'
     + '.dbox{text-align:center}.dline{border-bottom:1px solid #333;width:200px;margin-bottom:3px;height:24px}'
     + '.dlbl{font-size:8px;color:#666}.dnome{font-size:8px;font-weight:700;color:#333;margin-top:2px}'
