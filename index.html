@@ -244,8 +244,15 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 .manut-tipo{font-weight:700;font-size:14px;color:var(--ct);}
 .manut-placa{font-size:12px;color:var(--cm);margin-bottom:4px;}
 .manut-linha{font-size:12px;color:var(--cm);margin-top:2px;}
-.manut-alerta{background:#FEF3DC;border:1px solid #EDD59A;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;color:#8A6010;margin-top:6px;display:inline-block;}
-.manut-vencido{background:var(--vm-c);border-color:#F0C5C3;color:var(--vm);}
+.manut-alerta{border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;margin-top:6px;display:inline-block;}
+.manut-ok{background:#E6F4EB;border:1px solid #A8D5B5;color:#2D7D46;}
+.manut-warn{background:#FEF3DC;border:1px solid #EDD59A;color:#8A6010;}
+.manut-urgent{background:#FFF3E0;border:1px solid #FFCC80;color:#E65100;}
+.manut-vencido{background:var(--vm-c);border:1px solid #F0C5C3;color:var(--vm);}
+.manut-alerta-card{border-radius:10px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;border:1px solid;}
+.mac-warn{background:#FEF9EC;border-color:#EDD59A;}
+.mac-urgent{background:#FFF8F0;border-color:#FFCC80;}
+.mac-vencido{background:var(--vm-c);border-color:#F0C5C3;}
 .manut-actions{display:flex;gap:6px;flex-shrink:0;}
 /* SOLICITAÇÕES */
 .nav-badge{display:inline-flex;align-items:center;justify-content:center;background:#C0392B;color:white;font-size:10px;font-weight:700;border-radius:10px;min-width:17px;height:17px;padding:0 4px;margin-left:5px;vertical-align:middle;line-height:1;}
@@ -601,7 +608,7 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
       <button class="adm-tab" data-tab="feriados">Feriados</button>
       <button class="adm-tab" data-tab="veiculos">Veiculos</button>
       <button class="adm-tab" data-tab="colabs">Colaboradores</button>
-      <button class="adm-tab" data-tab="frota">Frota</button>
+      <button class="adm-tab" data-tab="frota">Frota <span class="nav-badge hidden" id="frota-manut-badge"></span></button>
       <button class="adm-tab" data-tab="config">Configuracoes</button>
     </div>
     <div class="adm-panel active" id="adm-obras">
@@ -712,7 +719,7 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
             <label style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--cm);">Veículo</label>
             <select id="manut-placa" style="background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;min-width:150px;"></select>
           </div>
-          <button class="btn-prim" id="btn-manut-novo">+ Registrar Manutenção</button>
+          <button class="btn-prim" id="btn-manut-novo">+ Cadastrar Tarefa</button>
         </div>
         <div id="manut-lista"></div>
       </div>
@@ -833,7 +840,7 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 <!-- MODAL MANUTENÇÃO -->
 <div class="modal-bg" id="modal-manut">
   <div class="modal">
-    <div class="modal-title">Registrar Manutenção</div>
+    <div class="modal-title">Nova Tarefa de Manutenção</div>
     <input type="hidden" id="mm-id" />
     <div class="mf">
       <label>Veículo (Placa)</label>
@@ -849,17 +856,29 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
       </select>
     </div>
     <div class="g2">
-      <div class="mf"><label>Data da Troca</label><input type="date" id="mm-data" /></div>
-      <div class="mf"><label>KM na Troca</label><input type="number" id="mm-km" placeholder="Ex: 50000" /></div>
-    </div>
-    <div class="g2">
-      <div class="mf"><label>Próxima Troca (data)</label><input type="date" id="mm-prox-data" /></div>
-      <div class="mf"><label>Próxima Troca (KM)</label><input type="number" id="mm-prox-km" placeholder="Ex: 55000" /></div>
+      <div class="mf"><label>Prazo previsto</label><input type="date" id="mm-prazo" /></div>
+      <div class="mf"><label>KM previsto</label><input type="number" id="mm-km-prazo" placeholder="Ex: 55000" /></div>
     </div>
     <div class="mf"><label>Observação</label><input type="text" id="mm-obs" placeholder="Marca do óleo, filtro usado, etc." /></div>
     <div class="modal-btns">
       <button class="m-cancel" data-close="modal-manut">Cancelar</button>
-      <button class="m-ok" id="btn-salvar-manut">Salvar</button>
+      <button class="m-ok" id="btn-salvar-manut">Cadastrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONCLUIR MANUTENÇÃO -->
+<div class="modal-bg" id="modal-manut-ok">
+  <div class="modal">
+    <div class="modal-title">Concluir Manutenção</div>
+    <input type="hidden" id="mok-id" />
+    <div class="g2">
+      <div class="mf"><label>Data de conclusão</label><input type="date" id="mok-data" /></div>
+      <div class="mf"><label>KM na conclusão</label><input type="number" id="mok-km" placeholder="Opcional" /></div>
+    </div>
+    <div class="modal-btns">
+      <button class="m-cancel" data-close="modal-manut-ok">Cancelar</button>
+      <button class="m-ok" id="btn-salvar-manut-ok">Confirmar</button>
     </div>
   </div>
 </div>
@@ -1721,6 +1740,7 @@ function iniciarApp() {
     showView('hist');
     renderHist();
     setTimeout(atualizarBadgeSols, 0);
+    setTimeout(atualizarBadgeFrota, 0);
   } else if (sessao.tipo === 'sup') {
     nav.innerHTML = '<button class="nav-btn active" data-view="form">Novo Registro</button>'
                   + '<button class="nav-btn" data-view="hist">Meu Historico</button>'
@@ -1734,6 +1754,7 @@ function iniciarApp() {
     showView('form');
     verificarPendente();
     setTimeout(atualizarBadgeSols, 0);
+    setTimeout(atualizarBadgeFrota, 0);
   } else if (sessao.tipo === 'enc') {
     nav.innerHTML = '<button class="nav-btn active" data-view="form">Novo Registro</button>'
                   + '<button class="nav-btn" data-view="hist">Meu Historico</button>'
@@ -4535,46 +4556,125 @@ function imprimirAlocacao(placa, fMes, fAno, rows, distItems, veiDesc) {
   setTimeout(function(){ w.print(); }, 500);
 }
 
+var MANUT_TIPO_LABEL = { oleo:'Troca de Óleo', filtro_motor:'Filtro de Motor', filtro_compressor:'Filtro do Compressor', outro:'Outro' };
+var MANUT_TIPO_ICON  = { oleo:'🛢', filtro_motor:'🔧', filtro_compressor:'💨', outro:'🔩' };
+
+function getAlertasManut() {
+  var hoje = new Date(); hoje.setHours(0,0,0,0);
+  // Considera pendentes tanto o status novo quanto registros antigos sem status
+  var pendentes = getManut().filter(function(m){ return m.status !== 'concluido'; });
+  var alertas = [];
+  pendentes.forEach(function(m) {
+    var prazo = m.prazo || m.proxData; // compat com registros antigos
+    if (!prazo) return;
+    var proxDt = new Date(prazo + 'T12:00'); proxDt.setHours(0,0,0,0);
+    var diffDias = Math.round((proxDt - hoje) / 86400000);
+    var nivel;
+    if (diffDias < 0)        nivel = 'vencido';
+    else if (diffDias <= 7)  nivel = 'urgent';
+    else if (diffDias <= 15) nivel = 'warn';
+    else return; // ok, sem alerta no badge
+    alertas.push({ m: m, diffDias: diffDias, nivel: nivel });
+  });
+  alertas.sort(function(a,b){ return a.diffDias - b.diffDias; });
+  return alertas;
+}
+
+function atualizarBadgeFrota() {
+  if (!sessao || (sessao.tipo !== 'admin' && sessao.tipo !== 'sup')) return;
+  var badge = document.getElementById('frota-manut-badge');
+  if (!badge) return;
+  var alertas = getAlertasManut();
+  if (alertas.length > 0) {
+    badge.textContent = alertas.length;
+    badge.classList.remove('hidden');
+  } else {
+    badge.textContent = '';
+    badge.classList.add('hidden');
+  }
+}
+
 function renderManutencao() {
   popularPlacaSelects();
   var placa = document.getElementById('manut-placa').value;
-  var manuts = getManut().filter(function(m){ return !placa || m.placa === placa; });
-  manuts.sort(function(a,b){ return b.id - a.id; });
+  var allManuts = getManut();
+  var filtrados = allManuts.filter(function(m){ return !placa || m.placa === placa; });
 
-  var tipoLabel = { oleo:'Troca de Óleo', filtro_motor:'Filtro de Motor', filtro_compressor:'Filtro do Compressor', outro:'Outro' };
-  var tipoIcon  = { oleo:'🛢', filtro_motor:'🔧', filtro_compressor:'💨', outro:'🔩' };
   var hoje = new Date(); hoje.setHours(0,0,0,0);
-
   var el = document.getElementById('manut-lista');
   if (!el) return;
-  if (!manuts.length) {
-    el.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--cm);font-size:14px;">Nenhuma manutenção registrada.</div>';
-    return;
+
+  var pendentes  = filtrados.filter(function(m){ return m.status !== 'concluido'; });
+  var concluidos = filtrados.filter(function(m){ return m.status === 'concluido'; });
+
+  function nivelInfo(m) {
+    var prazo = m.prazo || m.proxData;
+    if (!prazo) return { nivel: 'sem-prazo', diff: null };
+    var dt = new Date(prazo + 'T12:00'); dt.setHours(0,0,0,0);
+    var diff = Math.round((dt - hoje) / 86400000);
+    if (diff < 0)        return { nivel: 'vencido', diff: diff, fmt: new Date(prazo+'T12:00').toLocaleDateString('pt-BR') };
+    if (diff <= 7)       return { nivel: 'urgent',  diff: diff, fmt: new Date(prazo+'T12:00').toLocaleDateString('pt-BR') };
+    if (diff <= 15)      return { nivel: 'warn',    diff: diff, fmt: new Date(prazo+'T12:00').toLocaleDateString('pt-BR') };
+    return               { nivel: 'ok',      diff: diff, fmt: new Date(prazo+'T12:00').toLocaleDateString('pt-BR') };
   }
 
-  el.innerHTML = manuts.map(function(m) {
-    var dtFmt = m.data ? new Date(m.data+'T12:00').toLocaleDateString('pt-BR') : '—';
-    var proxDtFmt = m.proxData ? new Date(m.proxData+'T12:00').toLocaleDateString('pt-BR') : null;
-    var vencido = m.proxData && new Date(m.proxData+'T12:00') < hoje;
-    var alertaHtml = '';
-    if (proxDtFmt) {
-      alertaHtml = '<span class="manut-alerta' + (vencido ? ' manut-vencido' : '') + '">'
-        + (vencido ? '⚠ Vencido em ' : 'Próxima: ') + proxDtFmt
-        + (m.proxKm ? ' | ' + Number(m.proxKm).toLocaleString('pt-BR') + ' km' : '')
-        + '</span>';
+  pendentes.sort(function(a, b) {
+    var da = nivelInfo(a).diff; var db = nivelInfo(b).diff;
+    if (da === null) da = 9999;
+    if (db === null) db = 9999;
+    return da - db;
+  });
+
+  var pendHtml = pendentes.map(function(m) {
+    var n = nivelInfo(m);
+    var icon = MANUT_TIPO_ICON[m.tipo] || '🔩';
+    var cardCls, statusIcon, statusMsg;
+    if (n.nivel === 'sem-prazo') {
+      cardCls = ''; statusIcon = '⚪'; statusMsg = 'Sem prazo definido';
+    } else if (n.nivel === 'vencido') {
+      cardCls = 'manut-vencido'; statusIcon = '🔴'; statusMsg = 'Vencida há ' + Math.abs(n.diff) + ' dia(s) — ' + n.fmt;
+    } else if (n.nivel === 'urgent') {
+      cardCls = 'manut-urgent'; statusIcon = '🟠'; statusMsg = 'Vence em ' + n.diff + ' dia(s) — ' + n.fmt;
+    } else if (n.nivel === 'warn') {
+      cardCls = 'manut-warn'; statusIcon = '🟡'; statusMsg = 'Vence em ' + n.diff + ' dia(s) — ' + n.fmt;
+    } else {
+      cardCls = 'manut-ok'; statusIcon = '✅'; statusMsg = 'Prazo: ' + n.fmt;
     }
-    return '<div class="manut-card">'
-      + '<div class="manut-tipo-icon">' + (tipoIcon[m.tipo] || '🔩') + '</div>'
+    var kmPrazo = m.kmPrazo || m.proxKm;
+    return '<div class="manut-card ' + cardCls + '">'
+      + '<div class="manut-tipo-icon">' + icon + '</div>'
       + '<div class="manut-info">'
-      + '<div class="manut-tipo">' + (tipoLabel[m.tipo] || m.tipo) + '</div>'
+      + '<div class="manut-tipo">' + (MANUT_TIPO_LABEL[m.tipo] || m.tipo) + '</div>'
       + '<div class="manut-placa">' + m.placa + (m.obs ? ' — ' + m.obs : '') + '</div>'
-      + '<div class="manut-linha">Data: <b>' + dtFmt + '</b>' + (m.km ? ' &nbsp;|&nbsp; KM: <b>' + Number(m.km).toLocaleString('pt-BR') + '</b>' : '') + '</div>'
-      + alertaHtml
+      + '<div class="manut-linha">' + statusIcon + ' ' + statusMsg + (kmPrazo ? ' &nbsp;|&nbsp; KM previsto: <b>' + Number(kmPrazo).toLocaleString('pt-BR') + '</b>' : '') + '</div>'
+      + '</div>'
+      + '<div class="manut-actions">'
+      + '<button class="btn-prim" data-concluir-manut="' + m.id + '" style="font-size:12px;padding:4px 10px;">✓ Concluir</button>'
+      + ' <button class="btn-del" data-del-manut="' + m.id + '" style="font-size:12px;padding:4px 8px;">Excluir</button>'
+      + '</div></div>';
+  }).join('');
+
+  var histHtml = concluidos.sort(function(a,b){ return b.id - a.id; }).map(function(m) {
+    var dtFmt = m.dataConclusao ? new Date(m.dataConclusao+'T12:00').toLocaleDateString('pt-BR')
+              : m.data ? new Date(m.data+'T12:00').toLocaleDateString('pt-BR') : '—';
+    var icon = MANUT_TIPO_ICON[m.tipo] || '🔩';
+    return '<div class="manut-card manut-ok">'
+      + '<div class="manut-tipo-icon">' + icon + '</div>'
+      + '<div class="manut-info">'
+      + '<div class="manut-tipo">' + (MANUT_TIPO_LABEL[m.tipo] || m.tipo) + '</div>'
+      + '<div class="manut-placa">' + m.placa + (m.obs ? ' — ' + m.obs : '') + '</div>'
+      + '<div class="manut-linha">✅ Concluída em: <b>' + dtFmt + '</b>' + (m.kmConclusao || m.km ? ' &nbsp;|&nbsp; KM: <b>' + Number(m.kmConclusao || m.km).toLocaleString('pt-BR') + '</b>' : '') + '</div>'
       + '</div>'
       + '<div class="manut-actions">'
       + '<button class="btn-del" data-del-manut="' + m.id + '" style="font-size:12px;padding:4px 8px;">Excluir</button>'
       + '</div></div>';
   }).join('');
+
+  el.innerHTML = '<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--cm);margin-bottom:8px;">Tarefas Pendentes</div>'
+    + (pendentes.length ? pendHtml : '<div style="text-align:center;padding:16px 0;color:var(--cm);font-size:14px;">Nenhuma tarefa pendente.</div>')
+    + (concluidos.length
+      ? '<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--cm);margin:18px 0 8px;">Histórico</div>' + histHtml
+      : '');
 }
 
 document.getElementById('btn-frota-gerar').addEventListener('click', gerarAlocacao);
@@ -4585,41 +4685,68 @@ document.getElementById('manut-placa').addEventListener('change', renderManutenc
 document.getElementById('btn-manut-novo').addEventListener('click', function() {
   popularPlacaSelects();
   document.getElementById('mm-id').value = '';
-  document.getElementById('mm-data').value = '';
-  document.getElementById('mm-km').value = '';
-  document.getElementById('mm-prox-data').value = '';
-  document.getElementById('mm-prox-km').value = '';
+  document.getElementById('mm-prazo').value = '';
+  document.getElementById('mm-km-prazo').value = '';
   document.getElementById('mm-obs').value = '';
+  document.getElementById('mm-tipo').value = 'oleo';
   var mp = document.getElementById('manut-placa').value;
   if (mp) document.getElementById('mm-placa').value = mp;
   abrirModal('modal-manut');
 });
 
 document.getElementById('btn-salvar-manut').addEventListener('click', function() {
-  var placa = document.getElementById('mm-placa').value;
-  var tipo  = document.getElementById('mm-tipo').value;
-  var data  = document.getElementById('mm-data').value;
-  var km    = document.getElementById('mm-km').value;
-  var proxData = document.getElementById('mm-prox-data').value;
-  var proxKm   = document.getElementById('mm-prox-km').value;
-  var obs   = document.getElementById('mm-obs').value.trim();
-  if (!placa || !data) { toast('Placa e data são obrigatórios!', 'err'); return; }
+  var placa   = document.getElementById('mm-placa').value;
+  var tipo    = document.getElementById('mm-tipo').value;
+  var prazo   = document.getElementById('mm-prazo').value;
+  var kmPrazo = document.getElementById('mm-km-prazo').value;
+  var obs     = document.getElementById('mm-obs').value.trim();
+  if (!placa || !prazo) { toast('Placa e prazo são obrigatórios!', 'err'); return; }
   var manuts = getManut();
-  manuts.push({ id: Date.now(), placa: placa, tipo: tipo, data: data, km: km || null, proxData: proxData || null, proxKm: proxKm || null, obs: obs || null });
+  manuts.push({ id: Date.now(), placa: placa, tipo: tipo, prazo: prazo, kmPrazo: kmPrazo || null, obs: obs || null, status: 'pendente', dataConclusao: null, kmConclusao: null });
   setManut(manuts);
   fecharModal('modal-manut');
-  toast('Manutenção registrada!', 'ok');
+  toast('Tarefa cadastrada!', 'ok');
   renderManutencao();
+  atualizarBadgeFrota();
 });
 
 document.getElementById('manut-lista').addEventListener('click', function(e) {
-  var btn = e.target.closest('[data-del-manut]');
-  if (btn) {
-    var id = Number(btn.dataset.delManut);
+  var delBtn = e.target.closest('[data-del-manut]');
+  if (delBtn) {
+    var id = Number(delBtn.dataset.delManut);
     var manuts = getManut().filter(function(m){ return m.id !== id; });
     setManut(manuts);
     renderManutencao();
+    atualizarBadgeFrota();
+    return;
   }
+  var concBtn = e.target.closest('[data-concluir-manut]');
+  if (concBtn) {
+    var id = Number(concBtn.dataset.concluirManut);
+    document.getElementById('mok-id').value = id;
+    document.getElementById('mok-data').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('mok-km').value = '';
+    abrirModal('modal-manut-ok');
+  }
+});
+
+document.getElementById('btn-salvar-manut-ok').addEventListener('click', function() {
+  var id   = Number(document.getElementById('mok-id').value);
+  var data = document.getElementById('mok-data').value;
+  var km   = document.getElementById('mok-km').value;
+  if (!data) { toast('Informe a data de conclusão!', 'err'); return; }
+  var manuts = getManut();
+  var idx = -1;
+  for (var i = 0; i < manuts.length; i++) { if (manuts[i].id === id) { idx = i; break; } }
+  if (idx === -1) { toast('Tarefa não encontrada!', 'err'); return; }
+  manuts[idx].status = 'concluido';
+  manuts[idx].dataConclusao = data;
+  manuts[idx].kmConclusao = km || null;
+  setManut(manuts);
+  fecharModal('modal-manut-ok');
+  toast('Manutenção concluída! ✅', 'ok');
+  renderManutencao();
+  atualizarBadgeFrota();
 });
 
 })(); // fim do IIFE
