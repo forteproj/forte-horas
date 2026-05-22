@@ -1184,12 +1184,6 @@ function calcBancoHorasMensal(funcNome, mes, ano) {
   var detalheDebitos       = [];
   var heFds                = [];
 
-  var datasRegistradas = {};
-  allRegs.forEach(function(r) {
-    if (r.funcionarios.some(function(f){ return f.nome === funcNome; }))
-      datasRegistradas[r.data] = true;
-  });
-
   allRegs.forEach(function(r) {
     r.funcionarios.forEach(function(f) {
       if (f.nome !== funcNome) return;
@@ -1201,14 +1195,12 @@ function calcBancoHorasMensal(funcNome, mes, ano) {
       if (tipo === 'normal') {
         if (ab === 'Trabalhou') {
           diasUteisTrabalhados++;
-          esperadoMin += JORNADA_MIN;
           var jor = calcJornada(f.entrada, f.saida, r.data, true, uf, getFuncAdicNot(f.nome));
           if (jor) realizadoMin += jor.liquido;
         } else {
           var tipoAbono = getAbonosCustom().find(function(a){ return a.nome === ab; });
           if (tipoAbono && tipoAbono.debitaBH === true) {
             diasUteisAbonados++;
-            esperadoMin += JORNADA_MIN;
             detalheDebitos.push({ data: r.data, abono: ab });
           }
         }
@@ -1223,13 +1215,13 @@ function calcBancoHorasMensal(funcNome, mes, ano) {
     });
   });
 
-  // Dias úteis sem nenhum registro contam como débito integral
+  // Esperado = todos os dias úteis decorridos no mês (calendário puro)
   var hojeStrBH = new Date().getFullYear() + '-'
     + String(new Date().getMonth()+1).padStart(2,'0') + '-'
     + String(new Date().getDate()).padStart(2,'0');
   var primDiaBH = new Date(parseInt(fAno), parseInt(fMes)-1, 1);
   var ultDiaBH  = new Date(parseInt(fAno), parseInt(fMes), 0);
-  var diasSemRegistro = 0;
+  var diasUteisPassados = 0;
 
   for (var diBH = new Date(primDiaBH); diBH <= ultDiaBH; diBH.setDate(diBH.getDate()+1)) {
     var dStrBH = diBH.getFullYear() + '-'
@@ -1238,20 +1230,17 @@ function calcBancoHorasMensal(funcNome, mes, ano) {
     if (dStrBH > hojeStrBH) break;
     var dowBH = diBH.getDay();
     if (dowBH === 0 || dowBH === 6) continue;
-    if (datasRegistradas[dStrBH]) continue;
-    if (tipoDia(dStrBH, '') === 'normal') {
-      diasSemRegistro++;
-      esperadoMin += JORNADA_MIN;
-    }
+    if (tipoDia(dStrBH, '') === 'normal') diasUteisPassados++;
   }
 
+  esperadoMin = diasUteisPassados * JORNADA_MIN;
   var heBrutaMin    = realizadoMin - esperadoMin;
   var totalHeFdsMin = heFds.reduce(function(acc, h){ return acc + h.liquidoMin; }, 0);
 
   return {
     diasUteisTrabalhados: diasUteisTrabalhados,
     diasUteisAbonados:    diasUteisAbonados,
-    diasSemRegistro:      diasSemRegistro,
+    diasUteisPassados:    diasUteisPassados,
     esperadoMin:          esperadoMin,
     realizadoMin:         realizadoMin,
     heBrutaMin:           heBrutaMin,
@@ -2829,8 +2818,7 @@ function renderBancoHoras() {
       });
     });
 
-    var stHe50Sab = 0, stHe100Dom = 0, stHe100Fer = 0, stHe50Util = 0;
-    var stAbonos = 0, stAdicNot = 0, stAbonosDebitMin = 0;
+    var stHe50Sab = 0, stHe100Dom = 0, stHe100Fer = 0, stTrabalhado = 0;
     var linhas = '';
 
     for (var di = new Date(primDia); di <= ultDia; di.setDate(di.getDate()+1)) {
@@ -2877,11 +2865,10 @@ function renderBancoHoras() {
           var jor = calcJornada(f.entrada, f.saida, dStr, true, uf, getFuncAdicNot(func.nome));
           if (!jor) return;
 
-          if (tipo === 'sabado')  stHe50Sab  += jor.liquido;
-          if (tipo === 'domingo') stHe100Dom += jor.liquido;
-          if (tipo === 'feriado') stHe100Fer += jor.liquido;
-          if (tipo === 'normal')  stHe50Util += Math.max(0, jor.extra);
-          stAdicNot += (jor.adicNot||0);
+          if (tipo === 'sabado')  stHe50Sab   += jor.liquido;
+          if (tipo === 'domingo') stHe100Dom  += jor.liquido;
+          if (tipo === 'feriado') stHe100Fer  += jor.liquido;
+          if (tipo === 'normal')  stTrabalhado += jor.liquido;
 
           var ep = (f.entrada||'').split(':').map(Number);
           var entMin = ep[0]*60 + (ep[1]||0);
@@ -2941,20 +2928,15 @@ function renderBancoHoras() {
         + '</div>';
     }
 
-    var stAbonosStr = stAbonosDebitMin > 0 ? '−' + minToStr(Math.round(stAbonosDebitMin)) : '—';
-    var stAbonosClr = stAbonosDebitMin > 0 ? 'color:#C62828;' : '';
-    var netUtilMin  = stHe50Util - stAbonosDebitMin;
-    var netUtilStr  = (netUtilMin >= 0 ? '+' : '−') + minToStr(Math.abs(Math.round(netUtilMin)));
-    var netUtilClr  = netUtilMin >= 0 ? 'color:#1565C0;' : 'color:#C62828;';
+    var esperadoStr = minToStr(Math.round(bh.esperadoMin));
 
     var statsGrid = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px 10px;border-bottom:1px solid var(--cb);background:#FAFAF8;">'
-      + stBox('HE 50% Sáb',    stHe50Sab  > 0 ? minToStr(Math.round(stHe50Sab))  : '—', stHe50Sab  > 0 ? 'color:#E65100;' : '')
-      + stBox('HE 100% Dom',   stHe100Dom > 0 ? minToStr(Math.round(stHe100Dom)) : '—', stHe100Dom > 0 ? 'color:#880E4F;' : '')
-      + stBox('HE 100% Fer',   stHe100Fer > 0 ? minToStr(Math.round(stHe100Fer)) : '—', stHe100Fer > 0 ? 'color:#6A1B9A;' : '')
-      + stBox('HE 50% D.Útil', stHe50Util > 0 ? minToStr(Math.round(stHe50Util)) : '—', stHe50Util > 0 ? 'color:#1565C0;' : '')
-      + stBox('Abonos BH',     stAbonosStr, stAbonosClr)
-      + stBox('HE − Abonos',   netUtilStr, netUtilClr)
-      + stBox('Saldo BH',      saldoStr, saldoClr)
+      + stBox('HE 50% Sáb',   stHe50Sab  > 0 ? minToStr(Math.round(stHe50Sab))  : '—', stHe50Sab  > 0 ? 'color:#E65100;' : '')
+      + stBox('HE 100% Dom',  stHe100Dom > 0 ? minToStr(Math.round(stHe100Dom)) : '—', stHe100Dom > 0 ? 'color:#880E4F;' : '')
+      + stBox('HE 100% Fer',  stHe100Fer > 0 ? minToStr(Math.round(stHe100Fer)) : '—', stHe100Fer > 0 ? 'color:#6A1B9A;' : '')
+      + stBox('Trabalhado',   stTrabalhado > 0 ? minToStr(Math.round(stTrabalhado)) : '—', 'color:#1565C0;')
+      + stBox('Esperado',     esperadoStr, 'color:var(--ct);')
+      + stBox('Saldo Mês',    saldoStr, saldoClr)
       + '</div>';
 
     var headId = 'banco-head-' + fi;
