@@ -228,6 +228,25 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 .reg-obs{margin-top:10px;background:var(--cf);border-radius:6px;padding:9px 12px;font-size:13px;color:var(--cm);font-style:italic;}
 .reg-obs strong{font-style:normal;color:var(--ct);}
 .reg-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;}
+/* FROTA */
+.frota-table{width:100%;border-collapse:collapse;font-size:13px;}
+.frota-table th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--cm);padding:6px 10px;border-bottom:2px solid var(--cb);text-align:left;}
+.frota-table td{padding:7px 10px;border-bottom:1px solid var(--cf);vertical-align:middle;}
+.frota-sem{color:#C62828;font-style:italic;}
+.frota-fds{color:var(--cm);opacity:0.6;}
+.frota-dist{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.frota-dist-item{background:white;border:1px solid var(--cb);border-radius:8px;padding:8px 14px;font-size:13px;}
+.frota-dist-obra{font-weight:700;color:var(--ct);}
+.frota-dist-dias{font-size:12px;color:var(--cm);margin-top:2px;}
+.manut-card{background:white;border:1px solid var(--cb);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px;}
+.manut-tipo-icon{font-size:22px;flex-shrink:0;margin-top:2px;}
+.manut-info{flex:1;min-width:0;}
+.manut-tipo{font-weight:700;font-size:14px;color:var(--ct);}
+.manut-placa{font-size:12px;color:var(--cm);margin-bottom:4px;}
+.manut-linha{font-size:12px;color:var(--cm);margin-top:2px;}
+.manut-alerta{background:#FEF3DC;border:1px solid #EDD59A;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;color:#8A6010;margin-top:6px;display:inline-block;}
+.manut-vencido{background:var(--vm-c);border-color:#F0C5C3;color:var(--vm);}
+.manut-actions{display:flex;gap:6px;flex-shrink:0;}
 /* SOLICITAÇÕES */
 .nav-badge{display:inline-flex;align-items:center;justify-content:center;background:#C0392B;color:white;font-size:10px;font-weight:700;border-radius:10px;min-width:17px;height:17px;padding:0 4px;margin-left:5px;vertical-align:middle;line-height:1;}
 .nav-badge.hidden{display:none;}
@@ -582,6 +601,7 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
       <button class="adm-tab" data-tab="feriados">Feriados</button>
       <button class="adm-tab" data-tab="veiculos">Veiculos</button>
       <button class="adm-tab" data-tab="colabs">Colaboradores</button>
+      <button class="adm-tab" data-tab="frota">Frota</button>
       <button class="adm-tab" data-tab="config">Configuracoes</button>
     </div>
     <div class="adm-panel active" id="adm-obras">
@@ -656,6 +676,46 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
         <button class="btn-prim" id="btn-novo-veiculo">+ Novo Veiculo</button>
       </div>
       <div id="lista-veiculos"></div>
+    </div>
+
+    <div class="adm-panel" id="adm-frota">
+      <!-- ALOCAÇÃO -->
+      <div class="card-title" style="margin-bottom:12px;">Alocação de Veículo</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--cm);">Placa</label>
+          <select id="frota-placa" style="background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;min-width:150px;"></select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--cm);">Mês</label>
+          <select id="frota-mes" style="background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;">
+            <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option>
+            <option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option>
+            <option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option>
+            <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--cm);">Ano</label>
+          <select id="frota-ano" style="background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;min-width:100px;"></select>
+        </div>
+        <button class="btn-prim" id="btn-frota-gerar">Gerar</button>
+        <button class="btn-print" id="btn-frota-imprimir" style="display:none;">&#128438; Imprimir</button>
+      </div>
+      <div id="frota-resultado"></div>
+
+      <!-- MANUTENÇÃO -->
+      <div style="margin-top:32px;">
+        <div class="card-title" style="margin-bottom:12px;">Manutenção de Frota</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--cm);">Veículo</label>
+            <select id="manut-placa" style="background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;min-width:150px;"></select>
+          </div>
+          <button class="btn-prim" id="btn-manut-novo">+ Registrar Manutenção</button>
+        </div>
+        <div id="manut-lista"></div>
+      </div>
     </div>
 
     <div class="adm-panel" id="adm-config">
@@ -766,6 +826,40 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
     <div class="modal-btns">
       <button class="m-cancel" data-close="modal-sol-colab">Cancelar</button>
       <button class="m-ok" id="btn-salvar-sol-colab">Enviar Solicitação</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MANUTENÇÃO -->
+<div class="modal-bg" id="modal-manut">
+  <div class="modal">
+    <div class="modal-title">Registrar Manutenção</div>
+    <input type="hidden" id="mm-id" />
+    <div class="mf">
+      <label>Veículo (Placa)</label>
+      <select id="mm-placa" style="width:100%;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;"></select>
+    </div>
+    <div class="mf">
+      <label>Tipo de Manutenção</label>
+      <select id="mm-tipo" style="width:100%;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;">
+        <option value="oleo">Troca de Óleo</option>
+        <option value="filtro_motor">Filtro de Motor</option>
+        <option value="filtro_compressor">Filtro do Compressor</option>
+        <option value="outro">Outro</option>
+      </select>
+    </div>
+    <div class="g2">
+      <div class="mf"><label>Data da Troca</label><input type="date" id="mm-data" /></div>
+      <div class="mf"><label>KM na Troca</label><input type="number" id="mm-km" placeholder="Ex: 50000" /></div>
+    </div>
+    <div class="g2">
+      <div class="mf"><label>Próxima Troca (data)</label><input type="date" id="mm-prox-data" /></div>
+      <div class="mf"><label>Próxima Troca (KM)</label><input type="number" id="mm-prox-km" placeholder="Ex: 55000" /></div>
+    </div>
+    <div class="mf"><label>Observação</label><input type="text" id="mm-obs" placeholder="Marca do óleo, filtro usado, etc." /></div>
+    <div class="modal-btns">
+      <button class="m-cancel" data-close="modal-manut">Cancelar</button>
+      <button class="m-ok" id="btn-salvar-manut">Salvar</button>
     </div>
   </div>
 </div>
@@ -1100,6 +1194,8 @@ function getVeiculos() { return sget('forte_veiculos') || []; }
 function getColabs()   { return sget('forte_colabs')   || []; }
 function getSols()     { return sget('forte_sols')     || []; }
 function setSols(v)    { sset('forte_sols', v); }
+function getManut()    { return sget('forte_manut')    || []; }
+function setManut(v)   { sset('forte_manut', v); }
 var DEBITA_BH_MAP = {
   'Chuva': true, 'Manutencao': true, 'Galpao SP': true,
   'Viagem': false, 'Folga': false, 'Folga Coletiva': false,
@@ -1703,7 +1799,7 @@ function showView(v) {
     if (_selAno.options.length) _selAno.value = String(_hoje.getFullYear());
     renderResumoColab();
   }
-  if (v === 'adm') { renderObras(); renderFuncs(); renderEncs(); renderAbonos(); renderFeriados(); renderVeiculos(); renderColabs(); }
+  if (v === 'adm') { renderObras(); renderFuncs(); renderEncs(); renderAbonos(); renderFeriados(); renderVeiculos(); renderColabs(); renderFrota(); }
 }
 
 /* ADM TABS */
@@ -4266,6 +4362,265 @@ document.getElementById('sols-lista').addEventListener('click', function(e) {
 document.getElementById('col-busca').addEventListener('input', renderResumoColab);
 document.getElementById('col-mes').addEventListener('change', renderResumoColab);
 document.getElementById('col-ano').addEventListener('change', renderResumoColab);
+
+/* ═══════════════════════════════════════════════════════════════
+   FROTA — Alocação e Manutenção
+═══════════════════════════════════════════════════════════════ */
+
+function popularPlacaSelects() {
+  var veics = getVeiculos().filter(function(v){ return v.ativo; });
+  veics.sort(function(a,b){ return (a.placa||'').localeCompare(b.placa||''); });
+  ['frota-placa','manut-placa','mm-placa'].forEach(function(id) {
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    var cur = sel.value;
+    sel.innerHTML = veics.map(function(v){
+      return '<option value="' + v.placa + '">' + v.placa + (v.descricao ? ' — ' + v.descricao : '') + '</option>';
+    }).join('');
+    if (cur) sel.value = cur;
+  });
+}
+
+function renderFrota() {
+  popularPlacaSelects();
+  // popular anos
+  var selAno = document.getElementById('frota-ano');
+  if (!selAno.options.length) {
+    var anoAt = new Date().getFullYear();
+    for (var y = anoAt; y >= anoAt - 3; y--) {
+      var o = document.createElement('option');
+      o.value = String(y); o.textContent = String(y);
+      if (y === anoAt) o.selected = true;
+      selAno.appendChild(o);
+    }
+    document.getElementById('frota-mes').value = String(new Date().getMonth() + 1).padStart(2,'0');
+  }
+  document.getElementById('frota-resultado').innerHTML = '';
+  document.getElementById('btn-frota-imprimir').style.display = 'none';
+  renderManutencao();
+}
+
+function gerarAlocacao() {
+  var placa = document.getElementById('frota-placa').value;
+  var fMes  = document.getElementById('frota-mes').value;
+  var fAno  = document.getElementById('frota-ano').value;
+  if (!placa) { toast('Selecione uma placa!', 'err'); return; }
+
+  var anoN = parseInt(fAno), mesN = parseInt(fMes);
+  var primDia = new Date(anoN, mesN - 1, 1);
+  var ultDia  = new Date(anoN, mesN, 0);
+  var hojeStr = (function(){
+    var h = new Date();
+    return h.getFullYear() + '-' + String(h.getMonth()+1).padStart(2,'0') + '-' + String(h.getDate()).padStart(2,'0');
+  })();
+
+  var allRegs = getRegs().filter(function(r){
+    if (!r.data || !r.placa) return false;
+    var p = r.data.split('-');
+    return r.placa === placa && p[0] === fAno && p[1] === fMes;
+  });
+
+  var regsPorData = {};
+  allRegs.forEach(function(r){ regsPorData[r.data] = r; });
+
+  var rows = '', distribObra = {}, diasSemReg = 0;
+  var mesesNome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  for (var di = new Date(primDia); di <= ultDia; di.setDate(di.getDate()+1)) {
+    var dStr = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
+    var dtFmt = new Date(dStr+'T12:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+    var dow = di.getDay();
+    var isFds = dow === 0 || dow === 6;
+    var isFuturo = dStr > hojeStr;
+
+    if (regsPorData[dStr]) {
+      var r = regsPorData[dStr];
+      var enc = getEncs().find(function(e){ return e.id === r.encId; });
+      var encNome = enc ? enc.nome : (r.encNome || '—');
+      distribObra[r.local] = (distribObra[r.local] || 0) + 1;
+      rows += '<tr>'
+        + '<td>' + dtFmt + '</td>'
+        + '<td>' + r.local + '</td>'
+        + '<td>' + encNome + '</td>'
+        + '<td style="color:var(--cm);font-size:12px;">' + (r.obs || '—') + '</td>'
+        + '</tr>';
+    } else if (isFuturo) {
+      rows += '<tr style="opacity:0.35;">'
+        + '<td>' + dtFmt + '</td>'
+        + '<td colspan="3" style="color:var(--cm);font-style:italic;">Data futura</td>'
+        + '</tr>';
+    } else if (isFds) {
+      rows += '<tr class="frota-fds">'
+        + '<td>' + dtFmt + '</td>'
+        + '<td colspan="3" style="font-style:italic;">' + (dow === 6 ? 'Sábado' : 'Domingo') + ' — sem operação</td>'
+        + '</tr>';
+    } else {
+      diasSemReg++;
+      rows += '<tr>'
+        + '<td style="color:#C62828;font-weight:600;">' + dtFmt + '</td>'
+        + '<td colspan="3" class="frota-sem">⚠ Sem registro — consultar encarregado</td>'
+        + '</tr>';
+    }
+  }
+
+  // Distribuição por obra
+  var distItems = Object.keys(distribObra).sort(function(a,b){ return distribObra[b]-distribObra[a]; }).map(function(obra){
+    var d = distribObra[obra];
+    return '<div class="frota-dist-item">'
+      + '<div class="frota-dist-obra">' + obra + '</div>'
+      + '<div class="frota-dist-dias">' + d + ' dia' + (d > 1 ? 's' : '') + '</div>'
+      + '</div>';
+  }).join('');
+  if (diasSemReg > 0) {
+    distItems += '<div class="frota-dist-item" style="border-color:#F0C5C3;">'
+      + '<div class="frota-dist-obra" style="color:#C62828;">Sem registro</div>'
+      + '<div class="frota-dist-dias">' + diasSemReg + ' dia' + (diasSemReg > 1 ? 's' : '') + '</div>'
+      + '</div>';
+  }
+
+  var veiObj = getVeiculos().find(function(v){ return v.placa === placa; });
+  var veiDesc = veiObj ? (veiObj.descricao ? placa + ' — ' + veiObj.descricao : placa) : placa;
+
+  var html = '<div class="card" style="margin-bottom:16px;">'
+    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
+    + '<div style="flex:1;"><div style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:700;">' + veiDesc + '</div>'
+    + '<div style="font-size:13px;color:var(--cm);">' + mesesNome[mesN-1] + ' / ' + fAno + '</div></div>'
+    + '</div>'
+    + '<div class="banco-body-scroll">'
+    + '<table class="frota-table" style="min-width:560px;"><thead><tr>'
+    + '<th>Data</th><th>Obra / Local</th><th>Encarregado</th><th>Observação</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table>'
+    + '</div>'
+    + (distItems ? '<div style="margin-top:16px;border-top:1px solid var(--cb);padding-top:14px;"><div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--cm);margin-bottom:8px;">Distribuição no mês</div><div class="frota-dist">' + distItems + '</div></div>' : '')
+    + '</div>';
+
+  document.getElementById('frota-resultado').innerHTML = html;
+  document.getElementById('btn-frota-imprimir').style.display = '';
+  document.getElementById('btn-frota-imprimir').onclick = function(){ imprimirAlocacao(placa, fMes, fAno, rows, distItems, veiDesc); };
+}
+
+function imprimirAlocacao(placa, fMes, fAno, rows, distItems, veiDesc) {
+  var mesesNome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  var mesNome = mesesNome[parseInt(fMes)-1];
+  var css = '@page{size:A4 portrait;margin:12mm}'
+    + '*{box-sizing:border-box;}'
+    + 'html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#222;font-size:9px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+    + '.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;border-bottom:2px solid #F5A623;padding-bottom:6px;}'
+    + '.hdr-title{font-size:14px;font-weight:700;color:#1E1C18;}'
+    + '.hdr-sub{font-size:9px;color:#666;margin-top:2px;}'
+    + 'table{width:100%;border-collapse:collapse;margin-top:8px;}'
+    + 'th{background:#F5A623;padding:4px 6px;border:1px solid #ddd;text-align:left;font-size:8px;font-weight:700;}'
+    + 'td{padding:3px 6px;border:1px solid #eee;font-size:8.5px;vertical-align:middle;}'
+    + '.sem{color:#C62828;font-weight:600;}.fds{color:#999;font-style:italic;}'
+    + '.dist{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #eee;}'
+    + '.dist-item{border:1px solid #ddd;border-radius:6px;padding:5px 10px;}'
+    + '.dist-obra{font-weight:700;font-size:9px;}.dist-dias{font-size:8px;color:#666;}'
+    + '.sign{margin-top:20px;display:flex;justify-content:space-between;border-top:1px dashed #ccc;padding-top:12px;}'
+    + '.sbox{text-align:center;}.sline{border-bottom:1px solid #333;width:180px;height:20px;margin-bottom:3px;}'
+    + '.slbl{font-size:8px;color:#666;}';
+  var body = '<div class="hdr"><div><div class="hdr-title">Alocação de Veículo — ' + veiDesc + '</div>'
+    + '<div class="hdr-sub">' + mesNome + ' / ' + fAno + ' &nbsp;|&nbsp; FORTE Sistema</div></div>'
+    + '<div style="font-size:8px;color:#999;">Gerado em ' + new Date().toLocaleDateString('pt-BR') + '</div></div>'
+    + '<table><thead><tr><th>Data</th><th>Obra / Local</th><th>Encarregado</th><th>Observação</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table>'
+    + (distItems ? '<div class="dist">' + distItems.replace(/frota-dist-item/g,'dist-item').replace(/frota-dist-obra/g,'dist-obra').replace(/frota-dist-dias/g,'dist-dias') + '</div>' : '')
+    + '<div class="sign">'
+    + '<div class="sbox"><div class="sline"></div><div class="slbl">Responsável FORTE</div></div>'
+    + '<div class="sbox"><div class="sline"></div><div class="slbl">Data</div></div>'
+    + '</div>';
+  var w = window.open('', '_blank');
+  if (!w) { toast('Habilite popups para imprimir!', 'err'); return; }
+  w.document.write('<html><head><title>Alocação ' + placa + '</title><style>' + css + '</style></head><body>' + body + '</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.print(); }, 500);
+}
+
+function renderManutencao() {
+  popularPlacaSelects();
+  var placa = document.getElementById('manut-placa').value;
+  var manuts = getManut().filter(function(m){ return !placa || m.placa === placa; });
+  manuts.sort(function(a,b){ return b.id - a.id; });
+
+  var tipoLabel = { oleo:'Troca de Óleo', filtro_motor:'Filtro de Motor', filtro_compressor:'Filtro do Compressor', outro:'Outro' };
+  var tipoIcon  = { oleo:'🛢', filtro_motor:'🔧', filtro_compressor:'💨', outro:'🔩' };
+  var hoje = new Date(); hoje.setHours(0,0,0,0);
+
+  var el = document.getElementById('manut-lista');
+  if (!el) return;
+  if (!manuts.length) {
+    el.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--cm);font-size:14px;">Nenhuma manutenção registrada.</div>';
+    return;
+  }
+
+  el.innerHTML = manuts.map(function(m) {
+    var dtFmt = m.data ? new Date(m.data+'T12:00').toLocaleDateString('pt-BR') : '—';
+    var proxDtFmt = m.proxData ? new Date(m.proxData+'T12:00').toLocaleDateString('pt-BR') : null;
+    var vencido = m.proxData && new Date(m.proxData+'T12:00') < hoje;
+    var alertaHtml = '';
+    if (proxDtFmt) {
+      alertaHtml = '<span class="manut-alerta' + (vencido ? ' manut-vencido' : '') + '">'
+        + (vencido ? '⚠ Vencido em ' : 'Próxima: ') + proxDtFmt
+        + (m.proxKm ? ' | ' + Number(m.proxKm).toLocaleString('pt-BR') + ' km' : '')
+        + '</span>';
+    }
+    return '<div class="manut-card">'
+      + '<div class="manut-tipo-icon">' + (tipoIcon[m.tipo] || '🔩') + '</div>'
+      + '<div class="manut-info">'
+      + '<div class="manut-tipo">' + (tipoLabel[m.tipo] || m.tipo) + '</div>'
+      + '<div class="manut-placa">' + m.placa + (m.obs ? ' — ' + m.obs : '') + '</div>'
+      + '<div class="manut-linha">Data: <b>' + dtFmt + '</b>' + (m.km ? ' &nbsp;|&nbsp; KM: <b>' + Number(m.km).toLocaleString('pt-BR') + '</b>' : '') + '</div>'
+      + alertaHtml
+      + '</div>'
+      + '<div class="manut-actions">'
+      + '<button class="btn-del" data-del-manut="' + m.id + '" style="font-size:12px;padding:4px 8px;">Excluir</button>'
+      + '</div></div>';
+  }).join('');
+}
+
+document.getElementById('btn-frota-gerar').addEventListener('click', gerarAlocacao);
+document.getElementById('frota-placa').addEventListener('change', function(){ document.getElementById('frota-resultado').innerHTML = ''; document.getElementById('btn-frota-imprimir').style.display='none'; });
+
+document.getElementById('manut-placa').addEventListener('change', renderManutencao);
+
+document.getElementById('btn-manut-novo').addEventListener('click', function() {
+  popularPlacaSelects();
+  document.getElementById('mm-id').value = '';
+  document.getElementById('mm-data').value = '';
+  document.getElementById('mm-km').value = '';
+  document.getElementById('mm-prox-data').value = '';
+  document.getElementById('mm-prox-km').value = '';
+  document.getElementById('mm-obs').value = '';
+  var mp = document.getElementById('manut-placa').value;
+  if (mp) document.getElementById('mm-placa').value = mp;
+  abrirModal('modal-manut');
+});
+
+document.getElementById('btn-salvar-manut').addEventListener('click', function() {
+  var placa = document.getElementById('mm-placa').value;
+  var tipo  = document.getElementById('mm-tipo').value;
+  var data  = document.getElementById('mm-data').value;
+  var km    = document.getElementById('mm-km').value;
+  var proxData = document.getElementById('mm-prox-data').value;
+  var proxKm   = document.getElementById('mm-prox-km').value;
+  var obs   = document.getElementById('mm-obs').value.trim();
+  if (!placa || !data) { toast('Placa e data são obrigatórios!', 'err'); return; }
+  var manuts = getManut();
+  manuts.push({ id: Date.now(), placa: placa, tipo: tipo, data: data, km: km || null, proxData: proxData || null, proxKm: proxKm || null, obs: obs || null });
+  setManut(manuts);
+  fecharModal('modal-manut');
+  toast('Manutenção registrada!', 'ok');
+  renderManutencao();
+});
+
+document.getElementById('manut-lista').addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-del-manut]');
+  if (btn) {
+    var id = Number(btn.dataset.delManut);
+    var manuts = getManut().filter(function(m){ return m.id !== id; });
+    setManut(manuts);
+    renderManutencao();
+  }
+});
 
 })(); // fim do IIFE
 } // fim iniciarSistema
