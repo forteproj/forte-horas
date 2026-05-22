@@ -2916,7 +2916,7 @@ function renderBancoHoras() {
 
     var bh       = calcBancoHorasMensal(func.nome, mesN, anoN);
     var saldo    = bh.heBrutaMin;
-    var saldoStr = (saldo >= 0 ? '+' : '') + minToStr(Math.abs(Math.round(saldo)));
+    var saldoStr = (saldo >= 0 ? '+' : '−') + minToStr(Math.abs(Math.round(saldo)));
     var saldoClr = saldo >= 0 ? 'color:#2E7D32;' : 'color:#C62828;';
 
     function stBox(lbl, val, clr) {
@@ -2932,9 +2932,9 @@ function renderBancoHoras() {
       + stBox('HE 50% Sáb',   stHe50Sab  > 0 ? minToStr(Math.round(stHe50Sab))  : '—', stHe50Sab  > 0 ? 'color:#E65100;' : '')
       + stBox('HE 100% Dom',  stHe100Dom > 0 ? minToStr(Math.round(stHe100Dom)) : '—', stHe100Dom > 0 ? 'color:#880E4F;' : '')
       + stBox('HE 100% Fer',  stHe100Fer > 0 ? minToStr(Math.round(stHe100Fer)) : '—', stHe100Fer > 0 ? 'color:#6A1B9A;' : '')
-      + stBox('Trabalhado',   stTrabalhado > 0 ? minToStr(Math.round(stTrabalhado)) : '—', 'color:#1565C0;')
-      + stBox('Esperado',     esperadoStr, 'color:var(--ct);')
-      + stBox('Saldo Mês',    saldoStr, saldoClr)
+      + stBox('HR Trabalhadas', stTrabalhado > 0 ? minToStr(Math.round(stTrabalhado)) : '—', 'color:#1565C0;')
+      + stBox('HR Esperadas',   esperadoStr, 'color:var(--ct);')
+      + stBox('Resultado Mês',  saldoStr, saldoClr)
       + '</div>';
 
     var headId = 'banco-head-' + fi;
