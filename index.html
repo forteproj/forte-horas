@@ -209,6 +209,7 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 .chev.open{transform:rotate(180deg);}
 .reg-body{display:none;padding:0 16px 14px;border-top:1px solid var(--cb);}
 .reg-body.open{display:block;}
+.ftbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .abono-strip{background:var(--am-c);border-top:1px solid #EDD59A;border-bottom:1px solid #EDD59A;padding:7px 14px;font-size:12px;font-weight:700;color:var(--am-e);}
 .ftbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;}
 .ftbl th{text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--cm);padding:6px 8px;border-bottom:1px solid var(--cb);}
@@ -337,7 +338,8 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 .col-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
 @media(max-width:500px){.col-stats{grid-template-columns:repeat(2,1fr);}}
 /* V17 - BANCO DE HORAS */
-.banco-card{background:white;border-radius:var(--r);border:1px solid var(--cb);margin-bottom:14px;box-shadow:var(--sh);overflow:hidden;}
+.banco-card{background:white;border-radius:var(--r);border:1px solid var(--cb);margin-bottom:14px;box-shadow:var(--sh);}
+.banco-body-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .banco-head{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;background:#FAFAF8;border-bottom:1px solid var(--cb);}
 .banco-nome{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#1E1C18;}
 .banco-funcao{font-size:12px;color:var(--cm);margin-top:1px;}
@@ -2249,8 +2251,8 @@ function renderHist() {
       + '</div>'
       + '<div class="reg-body" id="body-' + r.id + '">'
       + strip
-      + '<table class="ftbl"><thead><tr><th>Funcionario</th><th>Entrada</th><th>Saida</th><th>Liquido</th><th>Intervalo</th><th>HE</th></tr></thead>'
-      + '<tbody>' + fRows + '</tbody></table>'
+      + '<div class="ftbl-wrap"><table class="ftbl"><thead><tr><th>Funcionario</th><th>Entrada</th><th>Saida</th><th>Liquido</th><th>Intervalo</th><th>HE</th></tr></thead>'
+      + '<tbody>' + fRows + '</tbody></table></div>'
       + sumHtml
       + obsH
       + (function(){
@@ -3178,10 +3180,11 @@ function renderBancoHoras() {
       + '</div></div>'
       + statsGrid
       + '<div id="' + bodyId + '" style="display:none;">'
-      + '<div style="display:grid;grid-template-columns:' + COL + ';gap:4px;padding:5px 12px;background:#F5F5F3;border-bottom:1px solid var(--cb);">'
+      + '<div class="banco-body-scroll">'
+      + '<div style="display:grid;grid-template-columns:' + COL + ';gap:4px;padding:5px 12px;background:#F5F5F3;border-bottom:1px solid var(--cb);min-width:700px;">'
       + colHdrs + '</div>'
-      + linhas
-      + '</div></div>';
+      + '<div style="min-width:700px;">' + linhas + '</div>'
+      + '</div></div></div>';
   });
 
   el.innerHTML = html;
@@ -4050,10 +4053,10 @@ function renderResumoColab() {
     + '<button class="btn-print" id="btn-bh-colab-print" title="Imprimir espelho de horas" style="flex-shrink:0;">&#128438;</button>'
     + '</div>'
     + statsGridC
-    + '<div id="bh-colab-body">'
-    + '<div style="display:grid;grid-template-columns:' + COL_BH + ';gap:4px;padding:5px 12px;background:#F5F5F3;border-bottom:1px solid var(--cb);">'
+    + '<div id="bh-colab-body" class="banco-body-scroll">'
+    + '<div style="display:grid;grid-template-columns:' + COL_BH + ';gap:4px;padding:5px 12px;background:#F5F5F3;border-bottom:1px solid var(--cb);min-width:700px;">'
     + colHdrsC + '</div>'
-    + linhasColab
+    + '<div style="min-width:700px;">' + linhasColab + '</div>'
     + '</div></div>';
 
   document.getElementById('btn-bh-colab-print').addEventListener('click', function(e) {
