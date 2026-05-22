@@ -1184,6 +1184,12 @@ function calcBancoHorasMensal(funcNome, mes, ano) {
   var detalheDebitos       = [];
   var heFds                = [];
 
+  var datasRegistradas = {};
+  allRegs.forEach(function(r) {
+    if (r.funcionarios.some(function(f){ return f.nome === funcNome; }))
+      datasRegistradas[r.data] = true;
+  });
+
   allRegs.forEach(function(r) {
     r.funcionarios.forEach(function(f) {
       if (f.nome !== funcNome) return;
@@ -1217,12 +1223,35 @@ function calcBancoHorasMensal(funcNome, mes, ano) {
     });
   });
 
+  // Dias úteis sem nenhum registro contam como débito integral
+  var hojeStrBH = new Date().getFullYear() + '-'
+    + String(new Date().getMonth()+1).padStart(2,'0') + '-'
+    + String(new Date().getDate()).padStart(2,'0');
+  var primDiaBH = new Date(parseInt(fAno), parseInt(fMes)-1, 1);
+  var ultDiaBH  = new Date(parseInt(fAno), parseInt(fMes), 0);
+  var diasSemRegistro = 0;
+
+  for (var diBH = new Date(primDiaBH); diBH <= ultDiaBH; diBH.setDate(diBH.getDate()+1)) {
+    var dStrBH = diBH.getFullYear() + '-'
+      + String(diBH.getMonth()+1).padStart(2,'0') + '-'
+      + String(diBH.getDate()).padStart(2,'0');
+    if (dStrBH > hojeStrBH) break;
+    var dowBH = diBH.getDay();
+    if (dowBH === 0 || dowBH === 6) continue;
+    if (datasRegistradas[dStrBH]) continue;
+    if (tipoDia(dStrBH, '') === 'normal') {
+      diasSemRegistro++;
+      esperadoMin += JORNADA_MIN;
+    }
+  }
+
   var heBrutaMin    = realizadoMin - esperadoMin;
   var totalHeFdsMin = heFds.reduce(function(acc, h){ return acc + h.liquidoMin; }, 0);
 
   return {
     diasUteisTrabalhados: diasUteisTrabalhados,
     diasUteisAbonados:    diasUteisAbonados,
+    diasSemRegistro:      diasSemRegistro,
     esperadoMin:          esperadoMin,
     realizadoMin:         realizadoMin,
     heBrutaMin:           heBrutaMin,
@@ -2801,7 +2830,7 @@ function renderBancoHoras() {
     });
 
     var stHe50Sab = 0, stHe100Dom = 0, stHe100Fer = 0, stHe50Util = 0;
-    var stAbonos = 0, stAdicNot = 0;
+    var stAbonos = 0, stAdicNot = 0, stAbonosDebitMin = 0;
     var linhas = '';
 
     for (var di = new Date(primDia); di <= ultDia; di.setDate(di.getDate()+1)) {
@@ -2830,6 +2859,7 @@ function renderBancoHoras() {
             stAbonos++;
             var tipoAbono  = getAbonosCustom().find(function(a){ return a.nome === ab; });
             var debita     = tipoAbono && tipoAbono.debitaBH === true && tipo === 'normal';
+            if (debita) stAbonosDebitMin += JORNADA_MIN;
             var liqAbono   = debita
               ? '<span style="color:#C62828;font-weight:700;">−' + minToStr(JORNADA_MIN) + '</span>'
               : '<span style="color:var(--cm);">—</span>';
@@ -2887,9 +2917,14 @@ function renderBancoHoras() {
           + '<span style="color:var(--cm);font-style:italic;">' + dowName + ' — sem registro</span>'
           + '</div>';
       } else {
-        linhas += '<div style="display:grid;grid-template-columns:100px 1fr;gap:4px;padding:5px 12px;border-bottom:1px solid #FFCDD2;font-size:12px;align-items:center;background:#FFF8F8;">'
+        linhas += '<div style="display:grid;grid-template-columns:' + COL + ';gap:4px;padding:5px 12px;border-bottom:1px solid #FFCDD2;font-size:12px;align-items:center;background:#FFF8F8;">'
           + '<span style="color:#C62828;font-weight:700;">' + dt + '</span>'
           + '<span style="color:#C62828;font-style:italic;">&#9888; Sem registro</span>'
+          + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+          + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+          + '<span style="color:var(--cm);">—</span>'
+          + '<span style="color:#C62828;font-weight:700;">−' + minToStr(JORNADA_MIN) + '</span>'
+          + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
           + '</div>';
       }
     }
@@ -2906,12 +2941,19 @@ function renderBancoHoras() {
         + '</div>';
     }
 
+    var stAbonosStr = stAbonosDebitMin > 0 ? '−' + minToStr(Math.round(stAbonosDebitMin)) : '—';
+    var stAbonosClr = stAbonosDebitMin > 0 ? 'color:#C62828;' : '';
+    var netUtilMin  = stHe50Util - stAbonosDebitMin;
+    var netUtilStr  = (netUtilMin >= 0 ? '+' : '−') + minToStr(Math.abs(Math.round(netUtilMin)));
+    var netUtilClr  = netUtilMin >= 0 ? 'color:#1565C0;' : 'color:#C62828;';
+
     var statsGrid = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px 10px;border-bottom:1px solid var(--cb);background:#FAFAF8;">'
       + stBox('HE 50% Sáb',    stHe50Sab  > 0 ? minToStr(Math.round(stHe50Sab))  : '—', stHe50Sab  > 0 ? 'color:#E65100;' : '')
       + stBox('HE 100% Dom',   stHe100Dom > 0 ? minToStr(Math.round(stHe100Dom)) : '—', stHe100Dom > 0 ? 'color:#880E4F;' : '')
       + stBox('HE 100% Fer',   stHe100Fer > 0 ? minToStr(Math.round(stHe100Fer)) : '—', stHe100Fer > 0 ? 'color:#6A1B9A;' : '')
       + stBox('HE 50% D.Útil', stHe50Util > 0 ? minToStr(Math.round(stHe50Util)) : '—', stHe50Util > 0 ? 'color:#1565C0;' : '')
-      + stBox('Abonos',        stAbonos   > 0 ? stAbonos + (stAbonos === 1 ? ' dia' : ' dias') : '—', stAbonos > 0 ? 'color:#F57F17;' : '')
+      + stBox('Abonos BH',     stAbonosStr, stAbonosClr)
+      + stBox('HE − Abonos',   netUtilStr, netUtilClr)
       + stBox('Saldo BH',      saldoStr, saldoClr)
       + '</div>';
 
