@@ -785,6 +785,30 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
   </div>
 </div>
 
+<!-- MODAL ABONO RÁPIDO (ESPELHO) -->
+<div class="modal-bg" id="modal-banco-abono">
+  <div class="modal">
+    <div class="modal-title">Registrar Abono</div>
+    <input type="hidden" id="bab-data" />
+    <input type="hidden" id="bab-func" />
+    <div style="background:#FEF3DC;border:1px solid #EDD59A;border-radius:8px;padding:10px 14px;font-size:13px;color:#7B5A00;margin-bottom:16px;">
+      <span id="bab-info"></span>
+    </div>
+    <div class="mf">
+      <label>Obra</label>
+      <select id="bab-obra" style="width:100%;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;"></select>
+    </div>
+    <div class="mf">
+      <label>Tipo de Abono</label>
+      <select id="bab-abono" style="width:100%;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;"></select>
+    </div>
+    <div class="modal-btns">
+      <button class="m-cancel" data-close="modal-banco-abono">Cancelar</button>
+      <button class="m-ok" id="btn-salvar-banco-abono">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL TIPO DE ABONO -->
 <div class="modal-bg" id="modal-abono">
   <div class="modal">
@@ -2641,6 +2665,7 @@ document.getElementById('btn-salvar-edit-reg').addEventListener('click', functio
   sset('forte_regs', regs);
   fecharModal('modal-edit-reg');
   renderHist();
+  if (document.getElementById('view-banco').classList.contains('active')) renderBancoHoras();
   toast('Registro corrigido!', 'ok');
 });
 
@@ -2821,7 +2846,23 @@ function renderBancoHoras() {
   funcs.sort(function(a,b){ return a.nome.localeCompare(b.nome,'pt-BR'); });
   if (!funcs.length) { el.innerHTML = '<div class="empty"><div class="ico">-</div><p>Nenhum funcionario cadastrado.</p></div>'; return; }
 
-  var COL = '100px 1fr 52px 62px 62px 52px 76px 62px 76px 66px';
+  var COL = '100px 1fr 52px 62px 62px 52px 76px 62px 76px 66px 30px';
+
+  var isAdm = sessao && (sessao.tipo === 'admin' || sessao.tipo === 'sup');
+  function editBtn(regId, encId) {
+    if (!isAdm) return '<span></span>';
+    var canEdit = sessao.tipo === 'admin' || encId === sessao.id;
+    if (!canEdit) return '<span></span>';
+    return '<button class="btn-banco-edit-reg" data-regid="' + regId + '" '
+      + 'style="background:none;border:1px solid var(--cb);border-radius:4px;cursor:pointer;font-size:11px;padding:2px 5px;color:var(--cm);" '
+      + 'title="Editar registro">✏</button>';
+  }
+  function abonarBtn(dStr, fNome) {
+    if (!isAdm) return '<span></span>';
+    return '<button class="btn-banco-abonar" data-data="' + dStr + '" data-func="' + fNome.replace(/"/g,'&quot;') + '" '
+      + 'style="background:none;border:1px solid #EDD59A;border-radius:4px;cursor:pointer;font-size:10px;padding:2px 5px;color:#7B5A00;" '
+      + 'title="Registrar abono">Ab</button>';
+  }
 
   var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">'
     + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--cm);cursor:pointer;">'
@@ -2881,7 +2922,8 @@ function renderBancoHoras() {
               + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
               + '<span><span class="badge b-abono" style="font-size:10px;">' + ab + '</span></span>'
               + liqAbono
-              + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span></div>';
+              + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+              + '<span>' + editBtn(r.id, r.encId) + '</span></div>';
             return;
           }
 
@@ -2916,6 +2958,7 @@ function renderBancoHoras() {
             + '<span style="font-weight:600;">' + minToStr(jor.liquido) + '</span>'
             + '<span>' + heStr + '</span>'
             + '<span>' + notStr + '</span>'
+            + '<span>' + editBtn(r.id, r.encId) + '</span>'
             + '</div>';
         });
       } else if (isFds) {
@@ -2935,6 +2978,7 @@ function renderBancoHoras() {
           + '<span style="color:var(--cm);">—</span>'
           + '<span style="color:#C62828;font-weight:700;">−' + minToStr(JORNADA_MIN) + '</span>'
           + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+          + '<span>' + abonarBtn(dStr, func.nome) + '</span>'
           + '</div>';
       }
     }
@@ -2965,7 +3009,7 @@ function renderBancoHoras() {
     var headId = 'banco-head-' + fi;
     var bodyId = 'banco-body-' + fi;
 
-    var colHdrs = ['Data','Obra','Início','Saída Alm.','Ret. Alm.','Término','Abono','Líquido','HE','Ad. Not.']
+    var colHdrs = ['Data','Obra','Início','Saída Alm.','Ret. Alm.','Término','Abono','Líquido','HE','Ad. Not.','']
       .map(function(h){ return '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">' + h + '</span>'; }).join('');
 
     html += '<div class="banco-card" style="margin-bottom:10px;">'
@@ -3006,9 +3050,24 @@ function renderBancoHoras() {
     });
   });
 
+  document.querySelectorAll('#banco-lista .btn-banco-edit-reg').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      abrirEditReg(Number(btn.dataset.regid));
+    });
+  });
+
+  document.querySelectorAll('#banco-lista .btn-banco-abonar').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      abrirBancoAbono(btn.dataset.data, btn.dataset.func);
+    });
+  });
+
   funcs.forEach(function(_, fi) {
     document.getElementById('banco-head-' + fi).addEventListener('click', function(e) {
-      if (e.target.closest('.banco-sel') || e.target.closest('.btn-banco-print-ind')) return;
+      if (e.target.closest('.banco-sel') || e.target.closest('.btn-banco-print-ind')
+          || e.target.closest('.btn-banco-edit-reg') || e.target.closest('.btn-banco-abonar')) return;
       var body = document.getElementById('banco-body-' + fi);
       var chev = this.querySelector('.chev');
       var open = body.style.display !== 'none';
@@ -3017,6 +3076,47 @@ function renderBancoHoras() {
     });
   });
 }
+
+/* ABONO RÁPIDO DO ESPELHO */
+function abrirBancoAbono(data, funcNome) {
+  document.getElementById('bab-data').value  = data;
+  document.getElementById('bab-func').value  = funcNome;
+  var dtFmt = new Date(data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+  document.getElementById('bab-info').textContent = funcNome + ' — ' + dtFmt;
+  var selObra = document.getElementById('bab-obra');
+  selObra.innerHTML = '<option value="">— Selecione a obra —</option>';
+  getObras().filter(function(o){ return o.ativo; }).forEach(function(o) {
+    selObra.innerHTML += '<option value="' + o.id + '">' + o.nome + (o.cidade && o.cidade !== o.nome ? ' - ' + o.cidade : '') + '</option>';
+  });
+  var selAb = document.getElementById('bab-abono');
+  selAb.innerHTML = '';
+  getAbonosCustom().filter(function(a){ return a.ativo; }).forEach(function(a) {
+    selAb.innerHTML += '<option value="' + a.nome + '">' + a.nome + '</option>';
+  });
+  abrirModal('modal-banco-abono');
+}
+
+document.getElementById('btn-salvar-banco-abono').addEventListener('click', function() {
+  var data     = document.getElementById('bab-data').value;
+  var funcNome = document.getElementById('bab-func').value;
+  var obraId   = document.getElementById('bab-obra').value;
+  var abono    = document.getElementById('bab-abono').value;
+  if (!obraId) { toast('Selecione a obra!', 'err'); return; }
+  if (!abono)  { toast('Selecione o tipo de abono!', 'err'); return; }
+  var obra  = getObras().find(function(o){ return String(o.id) === String(obraId); });
+  var local = obra ? obra.nome + (obra.cidade && obra.cidade !== obra.nome ? ' - ' + obra.cidade : '') : '';
+  var regs  = getRegs();
+  regs.push({
+    id: Date.now(), data: data, obraId: Number(obraId), local: local,
+    placa: '', obs: '', abonoEq: false, abonoMotivo: null,
+    encId: sessao.id, encNome: sessao.nome,
+    funcionarios: [{ nome: funcNome, entrada: '07:00', saida: '17:00', abono: abono, refeicao: true }]
+  });
+  sset('forte_regs', regs);
+  fecharModal('modal-banco-abono');
+  renderBancoHoras();
+  toast('Abono registrado!', 'ok');
+});
 
 /* CONFIGURACOES - SENHA ADMIN */
 document.getElementById('btn-salvar-senha-admin').addEventListener('click', function() {
