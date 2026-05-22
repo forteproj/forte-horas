@@ -1385,59 +1385,30 @@ function calcJornada(entrada, saida, dataStr, temRefeicao, ufObra, funcAdicNot) 
 
   var tipo = tipoDia(dataStr, ufObra);
 
-  // Para dias normais: calcula credito com fator noturno
+  // Liquido bruto: tempo real trabalhado sem fator noturno embutido
+  var liquidoBruto = bruto - (temRefeicao ? REFEICAO_MIN : 0);
+  var hrsNotMin    = Math.round(calcHorasNot(entMin, saiMin, temRefeicao));
+  // Adicional noturno CLT art.73: cada hora noturna real (52m30s) = 60min pagos → +1/7
+  var adicNotVal   = funcAdicNot === false ? 0 : Math.round(hrsNotMin / 7);
+
   if (tipo === 'normal') {
-    // Segmento 1: entrada ate inicio refeicao (se houver)
-    var creditoTotal = 0;
-    if (temRefeicao) {
-      var refeicaoInicio = entMin + GATILHO_REF;
-      var refeicaoFim    = refeicaoInicio + REFEICAO_MIN;
-      creditoTotal += creditarSegmento(entMin, refeicaoInicio);
-      creditoTotal += creditarSegmento(refeicaoFim, saiMin);
-    } else {
-      creditoTotal = creditarSegmento(entMin, saiMin);
-    }
-    creditoTotal = Math.round(creditoTotal);
+    var extraTotal = Math.max(0, liquidoBruto - JORNADA_MIN);
 
-    var normal = Math.min(creditoTotal, JORNADA_MIN);
-    var extraTotal = Math.max(0, creditoTotal - JORNADA_MIN);
-
-    // HE: encontra o ponto real onde a jornada se completou
+    // HE: encontra o ponto real de clock onde a jornada se completou (base: tempo bruto)
     var heNot = 0, heDiu = 0;
     if (extraTotal > 0) {
-      // Estima ponto de conclusao da jornada (aproximacao binaria simples)
-      var pontoHE = temRefeicao
-        ? (entMin + GATILHO_REF + REFEICAO_MIN) // apos refeicao, busca ponto
-        : entMin;
-      // Avanca ate creditar JORNADA_MIN
-      var acum = 0, cur = entMin;
       var blocos = temRefeicao
         ? [[entMin, entMin + GATILHO_REF], [entMin + GATILHO_REF + REFEICAO_MIN, saiMin]]
         : [[entMin, saiMin]];
-      var encontrou = false;
+      var acum2 = 0, pontoHE = entMin, encontrou = false;
       for (var bi = 0; bi < blocos.length && !encontrou; bi++) {
         var bc = blocos[bi][0], bf = blocos[bi][1];
-        var cursor2 = bc;
-        while (cursor2 < bf && !encontrou) {
-          var prox = bf;
-          var mDia = cursor2 % 1440;
-          var eNot = (mDia >= NOT_INICIO) || (mDia < NOT_FIM);
-          if (eNot) {
-            if (mDia >= NOT_INICIO) prox = Math.min(bf, Math.floor(cursor2/1440)*1440+1440+NOT_FIM);
-            else prox = Math.min(bf, Math.floor(cursor2/1440)*1440+NOT_FIM);
-          } else {
-            var p22 = Math.floor(cursor2/1440)*1440+NOT_INICIO;
-            if (p22 <= cursor2) p22 += 1440;
-            prox = Math.min(bf, p22);
-          }
-          var segR = prox - cursor2;
-          var fat  = eNot ? FATOR_NOT : 1.0;
-          var cred = segR * fat;
-          if (acum + cred >= JORNADA_MIN) {
-            var falta = JORNADA_MIN - acum;
-            pontoHE = cursor2 + Math.round(falta / fat);
-            encontrou = true;
-          } else { acum += cred; cursor2 = prox; }
+        var segLen = bf - bc;
+        if (acum2 + segLen >= JORNADA_MIN) {
+          pontoHE = bc + (JORNADA_MIN - acum2);
+          encontrou = true;
+        } else {
+          acum2 += segLen;
         }
       }
       var heObj = calcHENoturna(pontoHE, saiMin);
@@ -1447,29 +1418,27 @@ function calcJornada(entrada, saida, dataStr, temRefeicao, ufObra, funcAdicNot) 
 
     return {
       bruto: bruto,
-      liquido: creditoTotal,
-      normal: normal,
+      liquido: liquidoBruto,
+      normal: Math.min(liquidoBruto, JORNADA_MIN),
       extra: extraTotal,
       heNot: heNot, heDiu: heDiu,
-      hrsNot: Math.round(calcHorasNot(entMin, saiMin, temRefeicao)),
-      adicNot: funcAdicNot === false ? 0 : Math.round(calcHorasNot(entMin, saiMin, temRefeicao) / 3),
+      hrsNot: hrsNotMin,
+      adicNot: adicNotVal,
       temRefeicao: temRefeicao, refHorario: refHorario,
       tipo: tipo, adPerc: 0, adHoras: 0,
-      modoNoturno: creditoTotal !== bruto - (temRefeicao ? REFEICAO_MIN : 0)
+      modoNoturno: false
     };
 
   } else {
     // Sabado / Domingo / Feriado
-    var liquido = bruto - (temRefeicao ? REFEICAO_MIN : 0);
     var adPerc  = (tipo === 'sabado') ? 50 : 100;
-    var adHoras = Math.round(liquido * adPerc / 100);
-    var hrsNotFds = Math.round(calcHorasNot(entMin, saiMin, temRefeicao));
+    var adHoras = Math.round(liquidoBruto * adPerc / 100);
     return {
-      bruto: bruto, liquido: liquido,
-      normal: liquido, extra: 0,
+      bruto: bruto, liquido: liquidoBruto,
+      normal: liquidoBruto, extra: 0,
       heNot: 0, heDiu: 0,
-      hrsNot: hrsNotFds,
-      adicNot: funcAdicNot === false ? 0 : Math.round(hrsNotFds / 3),
+      hrsNot: hrsNotMin,
+      adicNot: adicNotVal,
       temRefeicao: temRefeicao, refHorario: refHorario,
       tipo: tipo, adPerc: adPerc, adHoras: adHoras,
       modoNoturno: false
