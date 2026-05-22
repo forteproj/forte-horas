@@ -227,6 +227,31 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 .reg-obs{margin-top:10px;background:var(--cf);border-radius:6px;padding:9px 12px;font-size:13px;color:var(--cm);font-style:italic;}
 .reg-obs strong{font-style:normal;color:var(--ct);}
 .reg-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;}
+/* SOLICITAÇÕES */
+.nav-badge{display:inline-flex;align-items:center;justify-content:center;background:#C0392B;color:white;font-size:10px;font-weight:700;border-radius:10px;min-width:17px;height:17px;padding:0 4px;margin-left:5px;vertical-align:middle;line-height:1;}
+.nav-badge.hidden{display:none;}
+.sol-card{background:white;border:1px solid var(--cb);border-radius:10px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--sh);}
+.sol-card-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+.sol-card-nome{font-weight:700;font-size:14px;color:var(--ct);}
+.sol-card-sub{font-size:12px;color:var(--cm);}
+.sol-tipo-ajuste{background:#E8F2FB;color:#2E6DA4;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;}
+.sol-tipo-abono{background:#E6F4EB;color:#2D7D46;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;}
+.sol-msg{font-size:13px;color:var(--ct);background:var(--cf);border-radius:6px;padding:8px 10px;margin:8px 0;}
+.sol-btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;}
+.btn-sol-resolver{background:var(--ve);color:white;border:none;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;}
+.btn-sol-rejeitar{background:var(--vm-c);color:var(--vm);border:1px solid #F0C5C3;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;}
+.sol-rej-wrap{margin-top:8px;display:none;}
+.sol-rej-wrap.open{display:block;}
+.sol-rej-wrap textarea{width:100%;border:1px solid var(--cb);border-radius:7px;padding:8px 10px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--ct);outline:none;resize:vertical;min-height:60px;background:white;}
+.btn-sol-conf-rej{background:var(--vm);color:white;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-top:6px;}
+.sol-status-tag{font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;}
+.sol-st-res{background:var(--ve-c);color:var(--ve);}
+.sol-st-rej{background:var(--vm-c);color:var(--vm);}
+.sol-st-can{background:var(--cf);color:var(--cm);}
+.btn-sol-cancelar-colab{background:transparent;border:1px solid #F0C5C3;color:var(--vm);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.btn-sol-abrir{background:transparent;border:1px solid var(--cb);color:var(--cm);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;white-space:nowrap;}
+.btn-sol-abrir:hover{border-color:var(--az);color:var(--az);}
+.sol-vazio{text-align:center;padding:40px 0;color:var(--cm);font-size:14px;}
 /* V2 - JORNADA */
 .dia-strip{padding:7px 16px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;border-top:1px solid transparent;border-bottom:1px solid transparent;}
 .dia-normal{background:#E8F5E9;border-color:#A5D6A7;color:#2E7D32;}
@@ -699,7 +724,48 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
     <div id="col-lista-regs"></div>
   </div>
   </div>
+  <div class="view" id="view-sols">
+  <div class="container">
+    <div class="page-title">Solicitações</div>
+    <div class="page-sub">Pedidos de ajuste ou abono dos colaboradores</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
+      <select id="sols-filtro" style="background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;">
+        <option value="pendente">Pendentes</option>
+        <option value="resolvido">Resolvidas</option>
+        <option value="cancelado">Canceladas</option>
+        <option value="todos">Todas</option>
+      </select>
+    </div>
+    <div id="sols-lista"></div>
+  </div>
+  </div>
 
+</div>
+
+<!-- MODAL SOLICITAÇÃO COLABORADOR -->
+<div class="modal-bg" id="modal-sol-colab">
+  <div class="modal">
+    <div class="modal-title">Solicitar Ajuste / Abono</div>
+    <input type="hidden" id="msc-regId" />
+    <input type="hidden" id="msc-data" />
+    <input type="hidden" id="msc-local" />
+    <div style="background:#EEF2FF;border-radius:7px;padding:8px 12px;margin-bottom:12px;font-size:13px;color:#3730A3;" id="msc-info"></div>
+    <div class="mf">
+      <label>Tipo de Solicitação</label>
+      <select id="msc-tipo" style="width:100%;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;">
+        <option value="ajuste">Ajuste de horário</option>
+        <option value="abono">Abono</option>
+      </select>
+    </div>
+    <div class="mf">
+      <label>Mensagem</label>
+      <textarea id="msc-msg" rows="3" style="width:100%;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--ct);outline:none;resize:vertical;" placeholder="Descreva o que precisa ser corrigido..."></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="m-cancel" data-close="modal-sol-colab">Cancelar</button>
+      <button class="m-ok" id="btn-salvar-sol-colab">Enviar Solicitação</button>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL OBRA -->
@@ -1030,6 +1096,8 @@ function getEncs()  { return sget('forte_encs')  || []; }
 function getRegs()  { return sget('forte_regs')  || []; }
 function getVeiculos() { return sget('forte_veiculos') || []; }
 function getColabs()   { return sget('forte_colabs')   || []; }
+function getSols()     { return sget('forte_sols')     || []; }
+function setSols(v)    { sset('forte_sols', v); }
 var DEBITA_BH_MAP = {
   'Chuva': true, 'Manutencao': true, 'Galpao SP': true,
   'Viagem': false, 'Folga': false, 'Folga Coletiva': false,
@@ -1538,6 +1606,26 @@ document.getElementById('btn-sair').addEventListener('click', function() {
   document.getElementById('l-senha').value = '';
 });
 
+/* BADGE SOLICITAÇÕES */
+function atualizarBadgeSols() {
+  var badge = document.getElementById('sols-nav-badge');
+  if (!badge) return;
+  var sols = getSols();
+  var pendentes = sols.filter(function(s) {
+    if (s.status !== 'pendente') return false;
+    if (sessao.tipo === 'admin' || sessao.tipo === 'sup') return true;
+    // enc: só as dos registros que ele criou
+    return s.encId === sessao.id;
+  });
+  if (pendentes.length > 0) {
+    badge.textContent = pendentes.length;
+    badge.classList.remove('hidden');
+  } else {
+    badge.textContent = '';
+    badge.classList.add('hidden');
+  }
+}
+
 /* INICIAR APP */
 function iniciarApp() {
   document.getElementById('login-wrap').style.display = 'none';
@@ -1556,6 +1644,7 @@ function iniciarApp() {
   if (sessao.tipo === 'admin') {
     nav.innerHTML = '<button class="nav-btn active" data-view="hist">Historico Geral</button>'
                   + '<button class="nav-btn" data-view="banco">Espelho de Horas</button>'
+                  + '<button class="nav-btn" data-view="sols">Solicitações <span class="nav-badge hidden" id="sols-nav-badge"></span></button>'
                   + '<button class="nav-btn" data-view="adm">Administracao</button>';
     document.getElementById('hist-title').textContent = 'Historico Geral';
     document.getElementById('hist-sub').textContent   = 'Todos os apontamentos da empresa';
@@ -1564,10 +1653,12 @@ function iniciarApp() {
     popularFiltroAnos();
     showView('hist');
     renderHist();
+    setTimeout(atualizarBadgeSols, 0);
   } else if (sessao.tipo === 'sup') {
     nav.innerHTML = '<button class="nav-btn active" data-view="form">Novo Registro</button>'
                   + '<button class="nav-btn" data-view="hist">Meu Historico</button>'
-                  + '<button class="nav-btn" data-view="banco">Espelho de Horas</button>';
+                  + '<button class="nav-btn" data-view="banco">Espelho de Horas</button>'
+                  + '<button class="nav-btn" data-view="sols">Solicitações <span class="nav-badge hidden" id="sols-nav-badge"></span></button>';
     document.getElementById('hist-title').textContent = 'Meu Historico';
     document.getElementById('hist-sub').textContent   = 'Seus apontamentos registrados';
     document.getElementById('h-enc').style.display    = 'none';
@@ -1575,9 +1666,11 @@ function iniciarApp() {
     iniciarForm();
     showView('form');
     verificarPendente();
+    setTimeout(atualizarBadgeSols, 0);
   } else if (sessao.tipo === 'enc') {
     nav.innerHTML = '<button class="nav-btn active" data-view="form">Novo Registro</button>'
-                  + '<button class="nav-btn" data-view="hist">Meu Historico</button>';
+                  + '<button class="nav-btn" data-view="hist">Meu Historico</button>'
+                  + '<button class="nav-btn" data-view="sols">Solicitações <span class="nav-badge hidden" id="sols-nav-badge"></span></button>';
     document.getElementById('hist-title').textContent = 'Meu Historico';
     document.getElementById('hist-sub').textContent   = 'Seus apontamentos registrados';
     document.getElementById('h-enc').style.display    = 'none';
@@ -1585,6 +1678,7 @@ function iniciarApp() {
     iniciarForm();
     showView('form');
     verificarPendente();
+    setTimeout(atualizarBadgeSols, 0);
   } else {
     // Colaborador
     nav.innerHTML = '<button class="nav-btn active" data-view="resumo">Meu Resumo</button>';
@@ -1630,7 +1724,14 @@ function showView(v) {
   document.querySelectorAll('.view').forEach(function(el) { el.classList.remove('active'); });
   document.getElementById('view-' + v).classList.add('active');
   if (v === 'hist') renderHist();
-  if (v === 'resumo') renderResumoColab();
+  if (v === 'sols') renderSols();
+  if (v === 'resumo') {
+    var _hoje = new Date();
+    document.getElementById('col-mes').value = String(_hoje.getMonth() + 1).padStart(2, '0');
+    var _selAno = document.getElementById('col-ano');
+    if (_selAno.options.length) _selAno.value = String(_hoje.getFullYear());
+    renderResumoColab();
+  }
   if (v === 'adm') { renderObras(); renderFuncs(); renderEncs(); renderAbonos(); renderFeriados(); renderVeiculos(); renderColabs(); }
 }
 
@@ -3808,7 +3909,10 @@ function renderResumoColab() {
     document.getElementById('col-faltas-wrap').insertAdjacentElement('afterend', bhEl);
   }
 
-  var COL_BH = '100px 1fr 52px 62px 62px 52px 76px 62px 76px 66px';
+  var COL_BH = '100px 1fr 52px 62px 62px 52px 76px 62px 76px 66px 30px';
+  var solsPendColab = getSols().filter(function(s){ return s.funcNome === funcNome && s.status === 'pendente'; });
+  var solsPendDatas = {};
+  solsPendColab.forEach(function(s){ solsPendDatas[s.data] = s.id; });
   function fmtHoraColab(m) {
     m = ((m % 1440) + 1440) % 1440;
     return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
@@ -3851,6 +3955,10 @@ function renderResumoColab() {
                    : ab !== 'Trabalhou' ? 'background:#FFFDE7;'
                    : '';
 
+        var solBtnC = solsPendDatas[dStrC]
+          ? '<button class="btn-sol-cancelar-colab" data-sol-id="' + solsPendDatas[dStrC] + '" title="Cancelar solicitação">✕</button>'
+          : '<button class="btn-sol-abrir" data-sol-data="' + dStrC + '" data-sol-regid="' + r.id + '" data-sol-local="' + (r.local||'').replace(/"/g,'&quot;') + '" title="Solicitar ajuste/abono">✉</button>';
+
         if (ab !== 'Trabalhou') {
           var tipoAbonoC = getAbonosCustom().find(function(a){ return a.nome === ab; });
           var debitaC    = tipoAbonoC && tipoAbonoC.debitaBH === true && tipo === 'normal';
@@ -3864,7 +3972,8 @@ function renderResumoColab() {
             + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
             + '<span><span class="badge b-abono" style="font-size:10px;">' + ab + '</span></span>'
             + liqAbonoC
-            + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span></div>';
+            + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
+            + solBtnC + '</div>';
           return;
         }
 
@@ -3899,7 +4008,7 @@ function renderResumoColab() {
           + '<span style="font-weight:600;">' + minToStr(jorC.liquido) + '</span>'
           + '<span>' + heStrC + '</span>'
           + '<span>' + notStrC + '</span>'
-          + '</div>';
+          + solBtnC + '</div>';
       });
     } else if (isFdsC) {
       var dowNameC = dowC === 6 ? 'Sábado' : 'Domingo';
@@ -3910,6 +4019,9 @@ function renderResumoColab() {
         + '<span style="color:var(--cm);font-style:italic;">' + dowNameC + ' — sem registro</span>'
         + '</div>';
     } else {
+      var solBtnSemC = solsPendDatas[dStrC]
+        ? '<button class="btn-sol-cancelar-colab" data-sol-id="' + solsPendDatas[dStrC] + '" title="Cancelar solicitação">✕</button>'
+        : '<button class="btn-sol-abrir" data-sol-data="' + dStrC + '" data-sol-regid="" data-sol-local="" title="Solicitar abono">✉</button>';
       linhasColab += '<div style="display:grid;grid-template-columns:' + COL_BH + ';gap:4px;padding:5px 12px;border-bottom:1px solid #FFCDD2;font-size:12px;align-items:center;background:#FFF8F8;">'
         + '<span style="color:#C62828;font-weight:700;">' + dtC + '</span>'
         + '<span style="color:#C62828;font-style:italic;">&#9888; Sem registro</span>'
@@ -3918,7 +4030,7 @@ function renderResumoColab() {
         + '<span style="color:var(--cm);">—</span>'
         + '<span style="color:#C62828;font-weight:700;">−' + minToStr(JORNADA_MIN) + '</span>'
         + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
-        + '</div>';
+        + solBtnSemC + '</div>';
     }
   }
 
@@ -3944,7 +4056,7 @@ function renderResumoColab() {
     + stBoxC('Resultado Mês',  saldoStrC, saldoClrC)
     + '</div>';
 
-  var colHdrsC = ['Data','Obra','Início','Saída Alm.','Ret. Alm.','Término','Abono','Líquido','HE','Ad. Not.']
+  var colHdrsC = ['Data','Obra','Início','Saída Alm.','Ret. Alm.','Término','Abono','Líquido','HE','Ad. Not.','']
     .map(function(h){ return '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">' + h + '</span>'; }).join('');
 
   var mesesNomeBH = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -3967,8 +4079,204 @@ function renderResumoColab() {
     imprimirBancoHoras([funcNome], fMes, fAno);
   });
 
+  bhEl.addEventListener('click', function(e) {
+    var btnAbrir = e.target.closest('.btn-sol-abrir');
+    if (btnAbrir) {
+      var data  = btnAbrir.dataset.solData;
+      var regId = btnAbrir.dataset.solRegid || '';
+      var local = btnAbrir.dataset.solLocal || '';
+      document.getElementById('msc-regId').value = regId;
+      document.getElementById('msc-data').value  = data;
+      document.getElementById('msc-local').value = local;
+      var dtFmt = new Date(data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+      document.getElementById('msc-info').textContent = dtFmt + (local ? ' — ' + local : '');
+      document.getElementById('msc-msg').value = '';
+      abrirModal('modal-sol-colab');
+      return;
+    }
+    var btnCancelar = e.target.closest('.btn-sol-cancelar-colab');
+    if (btnCancelar) {
+      var solId = Number(btnCancelar.dataset.solId);
+      var sols = getSols();
+      for (var si = 0; si < sols.length; si++) {
+        if (sols[si].id === solId) { sols[si].status = 'cancelado'; break; }
+      }
+      setSols(sols);
+      toast('Solicitação cancelada.', 'ok');
+      renderResumoColab();
+    }
+  });
+
   document.getElementById('col-lista-regs').innerHTML = '';
 }
+
+document.getElementById('btn-salvar-sol-colab').addEventListener('click', function() {
+  var regId = document.getElementById('msc-regId').value;
+  var data  = document.getElementById('msc-data').value;
+  var local = document.getElementById('msc-local').value;
+  var tipo  = document.getElementById('msc-tipo').value;
+  var msg   = document.getElementById('msc-msg').value.trim();
+  if (!msg) { toast('Escreva uma mensagem!', 'err'); return; }
+  var funcNome = sessao.funcNome || sessao.nome;
+  // busca encId do registro, se houver
+  var encId = null;
+  if (regId) {
+    var regObj = getRegs().find(function(r){ return String(r.id) === String(regId); });
+    if (regObj) encId = regObj.encId;
+  }
+  var sols = getSols();
+  sols.push({
+    id: Date.now(),
+    funcNome: funcNome,
+    regId: regId || null,
+    data: data,
+    obraLocal: local || 'Sem registro',
+    tipo: tipo,
+    msg: msg,
+    status: 'pendente',
+    encId: encId,
+    criadoEm: new Date().toISOString(),
+    resolvidoEm: null,
+    resolvidoPor: null,
+    respostaMsg: null
+  });
+  setSols(sols);
+  fecharModal('modal-sol-colab');
+  toast('Solicitação enviada!', 'ok');
+  atualizarBadgeSols();
+  renderResumoColab();
+});
+
+document.getElementById('sols-filtro').addEventListener('change', renderSols);
+
+function renderSols() {
+  var filtro = document.getElementById('sols-filtro').value;
+  var sols = getSols();
+  var lista = sols.filter(function(s) {
+    if (filtro !== 'todos' && s.status !== filtro) return false;
+    if (sessao.tipo === 'admin' || sessao.tipo === 'sup') return true;
+    return s.encId === sessao.id;
+  });
+  lista.sort(function(a, b) { return b.id - a.id; });
+
+  var el = document.getElementById('sols-lista');
+  if (!lista.length) {
+    el.innerHTML = '<div class="sol-vazio">Nenhuma solicitação encontrada.</div>';
+    return;
+  }
+
+  var html = '';
+  lista.forEach(function(s) {
+    var dtFmt = s.data ? new Date(s.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+    var tipoBadge = s.tipo === 'ajuste'
+      ? '<span class="sol-tipo-ajuste">Ajuste de horário</span>'
+      : '<span class="sol-tipo-abono">Abono</span>';
+
+    var statusTag = '';
+    if (s.status === 'resolvido') statusTag = '<span class="sol-status-tag sol-st-res">Resolvida</span>';
+    else if (s.status === 'cancelado') statusTag = '<span class="sol-status-tag sol-st-can">Cancelada</span>';
+
+    var acoes = '';
+    if (s.status === 'pendente') {
+      acoes = '<div class="sol-btns">'
+        + '<button class="btn-sol-rejeitar" data-sol-rej="' + s.id + '">Rejeitar</button>'
+        + (s.regId ? '<button class="btn-sol-resolver" data-sol-res="' + s.id + '" data-sol-regid="' + s.regId + '">Editar Registro</button>' : '')
+        + '</div>'
+        + '<div class="sol-rej-wrap" id="sol-rej-' + s.id + '">'
+        + '<textarea placeholder="Motivo da rejeição (opcional)..." id="sol-rej-txt-' + s.id + '"></textarea>'
+        + '<button class="btn-sol-conf-rej" data-sol-conf-rej="' + s.id + '">Confirmar Rejeição</button>'
+        + '</div>';
+    } else if (s.respostaMsg) {
+      acoes = '<div style="font-size:12px;color:var(--cm);margin-top:4px;font-style:italic;">Resposta: ' + s.respostaMsg + '</div>';
+    }
+
+    html += '<div class="sol-card">'
+      + '<div class="sol-card-top">'
+      + '<span class="sol-card-nome">' + s.funcNome + '</span>'
+      + tipoBadge
+      + statusTag
+      + '<span style="flex:1;"></span>'
+      + '<span class="sol-card-sub">' + dtFmt + '</span>'
+      + '</div>'
+      + '<div class="sol-card-sub" style="margin-bottom:6px;">' + (s.obraLocal || '') + '</div>'
+      + '<div class="sol-msg">' + s.msg + '</div>'
+      + acoes
+      + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+document.getElementById('sols-lista').addEventListener('click', function(e) {
+    // Resolver — abre modal edição do registro
+    var btnRes = e.target.closest('[data-sol-res]');
+    if (btnRes) {
+      var solId  = Number(btnRes.dataset.solRes);
+      var regId2 = Number(btnRes.dataset.solRegid);
+      var regsAll = getRegs();
+      var regObj2 = regsAll.find(function(r){ return r.id === regId2; });
+      if (!regObj2) { toast('Registro não encontrado.', 'err'); return; }
+      // Marca como resolvido ao abrir edição
+      var sols2 = getSols();
+      for (var si2 = 0; si2 < sols2.length; si2++) {
+        if (sols2[si2].id === solId) {
+          sols2[si2].status = 'resolvido';
+          sols2[si2].resolvidoEm = new Date().toISOString();
+          sols2[si2].resolvidoPor = sessao.nome;
+          break;
+        }
+      }
+      setSols(sols2);
+      atualizarBadgeSols();
+      // Abre modal de edição do registro existente
+      document.getElementById('er-regid').value = regObj2.id;
+      document.getElementById('er-data').value  = regObj2.data || '';
+      document.getElementById('er-local').value = regObj2.local || '';
+      var encObj2 = getEncs().find(function(en){ return en.id === regObj2.encId; });
+      document.getElementById('er-enc').textContent = encObj2 ? encObj2.nome : '—';
+      var erTbody = document.getElementById('er-tbody');
+      erTbody.innerHTML = '';
+      (regObj2.funcionarios || []).forEach(function(f2, fi2) {
+        var opts = getAbonosCustom().map(function(a){ return '<option' + (f2.abono === a.nome ? ' selected' : '') + '>' + a.nome + '</option>'; }).join('');
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + f2.nome + '</td>'
+          + '<td><input class="er-entrada" data-fi="' + fi2 + '" value="' + (f2.entrada||'') + '" style="width:70px;border:1px solid var(--cb);border-radius:5px;padding:4px 6px;font-family:\'Barlow\',sans-serif;font-size:13px;" /></td>'
+          + '<td><input class="er-saida" data-fi="' + fi2 + '" value="' + (f2.saida||'') + '" style="width:70px;border:1px solid var(--cb);border-radius:5px;padding:4px 6px;font-family:\'Barlow\',sans-serif;font-size:13px;" /></td>'
+          + '<td><select class="er-abono" data-fi="' + fi2 + '" style="border:1px solid var(--cb);border-radius:5px;padding:4px 6px;font-family:\'Barlow\',sans-serif;font-size:13px;"><option>Trabalhou</option>' + opts + '</select></td>';
+        erTbody.appendChild(tr);
+      });
+      abrirModal('modal-edit-reg');
+      renderSols();
+      return;
+    }
+    // Rejeitar — toggle form
+    var btnRej = e.target.closest('[data-sol-rej]');
+    if (btnRej) {
+      var solIdR = btnRej.dataset.solRej;
+      var wrap = document.getElementById('sol-rej-' + solIdR);
+      if (wrap) wrap.classList.toggle('open');
+      return;
+    }
+    // Confirmar rejeição
+    var btnConfRej = e.target.closest('[data-sol-conf-rej]');
+    if (btnConfRej) {
+      var solIdCR = Number(btnConfRej.dataset.solConfRej);
+      var motivo  = (document.getElementById('sol-rej-txt-' + solIdCR) || {}).value || '';
+      var sols3 = getSols();
+      for (var si3 = 0; si3 < sols3.length; si3++) {
+        if (sols3[si3].id === solIdCR) {
+          sols3[si3].status = 'resolvido';
+          sols3[si3].resolvidoEm = new Date().toISOString();
+          sols3[si3].resolvidoPor = sessao.nome;
+          sols3[si3].respostaMsg = motivo || null;
+          break;
+        }
+      }
+      setSols(sols3);
+      atualizarBadgeSols();
+      toast('Solicitação rejeitada.', 'ok');
+      renderSols();
+    }
+  });
 
 document.getElementById('col-busca').addEventListener('input', renderResumoColab);
 document.getElementById('col-mes').addEventListener('change', renderResumoColab);
