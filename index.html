@@ -2844,10 +2844,8 @@ function renderBancoHoras() {
                     : '';
 
           if (ab !== 'Trabalhou') {
-            stAbonos++;
             var tipoAbono  = getAbonosCustom().find(function(a){ return a.nome === ab; });
             var debita     = tipoAbono && tipoAbono.debitaBH === true && tipo === 'normal';
-            if (debita) stAbonosDebitMin += JORNADA_MIN;
             var liqAbono   = debita
               ? '<span style="color:#C62828;font-weight:700;">−' + minToStr(JORNADA_MIN) + '</span>'
               : '<span style="color:var(--cm);">—</span>';
