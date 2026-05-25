@@ -913,10 +913,10 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
       </div>
       <div class="org-bar" id="org-filters">
         <div style="display:flex;gap:3px;align-items:center">
-          <button class="org-btn" onclick="orgZoom(orgScale-0.1)">−</button>
+          <button class="org-btn" onclick="orgZoomOut()">−</button>
           <span class="org-zlbl" id="org-zlbl">100%</span>
-          <button class="org-btn" onclick="orgZoom(orgScale+0.1)">+</button>
-          <button class="org-btn" onclick="orgZoom(1)" style="margin-left:2px">↩</button>
+          <button class="org-btn" onclick="orgZoomIn()">+</button>
+          <button class="org-btn" onclick="orgZoomReset()" style="margin-left:2px">↩</button>
           <button class="org-btn" onclick="orgFit()" style="margin-left:2px">⊡ Fit</button>
         </div>
       </div>
@@ -5601,6 +5601,35 @@ function orgInit(){
   orgRenderMestre();
   orgLoad();
 }
+
+// Wrappers de zoom (orgScale é local ao IIFE — não acessível inline)
+function orgZoomIn()    { orgZoom(orgScale + 0.1); }
+function orgZoomOut()   { orgZoom(orgScale - 0.1); }
+function orgZoomReset() { orgZoom(1); }
+
+// Expõe funções org ao escopo global para os onclick do HTML
+window.orgShowTab    = orgShowTab;
+window.orgBuild      = orgBuild;
+window.orgPrint      = orgPrint;
+window.orgSave       = orgSave;
+window.orgFit        = orgFit;
+window.orgZoomIn     = orgZoomIn;
+window.orgZoomOut    = orgZoomOut;
+window.orgZoomReset  = orgZoomReset;
+window.orgMapBuild   = orgMapBuild;
+window.orgAddTeam    = orgAddTeam;
+window.orgHandleImport = orgHandleImport;
+window.orgExportCSV  = orgExportCSV;
+window.orgAddRowAll  = orgAddRowAll;
+window.orgAddMestre  = orgAddMestre;
+window.orgRenameT    = orgRenameT;
+window.orgUpdateMeta = orgUpdateMeta;
+window.orgRemoveT    = orgRemoveT;
+window.orgAddRow     = orgAddRow;
+window.orgRemoveRow  = orgRemoveRow;
+window.orgUpCell     = orgUpCell;
+window.orgUpM        = orgUpM;
+window.orgRmM        = orgRmM;
 
 })(); // fim do IIFE
 } // fim iniciarSistema
