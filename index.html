@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Apontamento de Horas - Forte</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{
   --am:#F5A623;--am-e:#C47D0E;--am-c:#FEF3DC;
@@ -432,6 +433,91 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
 .solicitar-area textarea:focus{border-color:var(--am);background:white;}
 .btn-enviar-solicitacao{background:var(--am);border:none;border-radius:7px;padding:9px 18px;font-family:'Barlow',sans-serif;font-size:14px;font-weight:700;color:#1E1C18;cursor:pointer;margin-top:8px;}
 .btn-enviar-solicitacao:hover{background:var(--am-e);color:white;}
+/* ─── ORGANOGRAMA ─────────────────────────────────────── */
+#view-organograma{
+  --sf:#F2F0EB;--sf2:#E2DFD8;--sf3:#D8D5CE;
+  --bd:#C8C5BE;--bd2:#AEA9A0;
+  --amb:#A87600;--ambm:#C99200;--abg:#FFF5CC;--abdr:#E0C040;
+  --tx:#1A1916;--txs:#5A5852;--mu:#908D86;--fv:#ECEAE4;
+  --head:'Montserrat',sans-serif;
+  font-family:'Montserrat',sans-serif;
+}
+.org-tabs{display:flex;background:var(--sf2);border-bottom:2px solid var(--bd2);padding:0 18px}
+.org-tab{font-family:var(--head);font-weight:700;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);padding:9px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px}
+.org-tab:hover{color:var(--tx)}
+.org-tab.on{color:var(--ambm);border-bottom-color:var(--ambm)}
+.org-page{display:none;padding:16px 18px 60px}
+.org-page.on{display:block}
+.org-sh{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.org-st{font-weight:800;font-size:14px;letter-spacing:.05em;text-transform:uppercase;border-left:4px solid var(--ambm);padding-left:10px}
+.org-ss{font-size:10px;color:var(--mu);padding-left:14px;margin-top:1px}
+.org-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border:1px solid var(--bd2);border-radius:3px;background:var(--sf);color:var(--txs);font-family:var(--head);font-weight:700;font-size:10px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;white-space:nowrap}
+.org-btn:hover{color:var(--ambm);border-color:var(--ambm);background:var(--abg)}
+.org-btn.ok{background:var(--ambm);color:#1E1C18;border-color:var(--ambm)}
+.org-btn.ghost{background:transparent;border-style:dashed;color:var(--mu)}
+.org-btn.ghost:hover{color:var(--ambm);border-color:var(--ambm)}
+.org-bar{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.org-flt{font-family:var(--head);font-weight:700;font-size:8px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:2px;border:1.5px solid;cursor:pointer;background:transparent;transition:opacity .15s}
+.org-flt.off{opacity:.25}
+.org-zlbl{font-size:10px;color:var(--mu);font-weight:700;min-width:34px;text-align:right}
+.cvwrap{overflow:auto;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;height:calc(100vh - 210px);min-height:380px;position:relative;cursor:grab}
+.cvwrap.panning{cursor:grabbing}
+#org-cv-canvas{position:absolute;top:0;left:0;pointer-events:none;z-index:0}
+#org-cv-nodes{position:absolute;top:0;left:0;z-index:1}
+.onode{position:absolute;background:var(--sf);border:1px solid var(--bd);border-radius:3px;width:118px;cursor:move;user-select:none}
+.onode:hover{border-color:var(--bd2)}
+.onode.shared{border-style:dashed}
+.ostripe{height:2px;border-radius:3px 3px 0 0}
+.oicon{font-size:14px;display:block;padding:4px 7px 1px}
+.oname{font-weight:700;font-size:10px;padding:0 7px 1px;line-height:1.25;word-break:break-word;color:var(--tx)}
+.obadge{display:inline-block;font-weight:700;font-size:8px;letter-spacing:.04em;text-transform:uppercase;padding:1px 5px;border-radius:2px;margin:2px 7px 6px}
+.ochip{position:absolute;background:var(--sf);border:1px solid var(--bd);border-radius:3px;width:118px;cursor:move;user-select:none;overflow:hidden}
+.ochip:hover{border-color:var(--bd2)}
+.ochip-stripe{height:2px;border-radius:3px 3px 0 0}
+.ochip-body{display:flex;align-items:center;padding:5px 7px 6px;gap:5px}
+.ochip-ico{font-size:12px;flex-shrink:0}
+.ochip-info{min-width:0;flex:1}
+.ochip-lbl{font-weight:700;font-size:7px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);line-height:1;margin-bottom:1px}
+.ochip-val{font-weight:700;font-size:9px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.org-teams-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;align-items:flex-start}
+.org-teams-scroll::-webkit-scrollbar{height:5px}
+.org-teams-scroll::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}
+.org-tcard{background:var(--sf);border:1px solid var(--bd);border-radius:4px;min-width:220px;max-width:240px;flex-shrink:0;overflow:hidden}
+.org-thead{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:2px solid var(--bd2);background:var(--sf2)}
+.org-tdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.org-tname{flex:1;border:none;outline:none;font-family:var(--head);font-weight:700;font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:transparent;color:var(--tx)}
+.org-tname:focus{background:var(--fv);border-radius:2px;padding:0 3px}
+.org-btnx{background:none;border:none;cursor:pointer;color:var(--bd2);font-size:13px;padding:1px 3px;border-radius:2px}
+.org-btnx:hover{color:#D44}
+.org-tmeta{border-bottom:1px solid var(--bd);background:var(--sf2)}
+.org-tmrow{display:flex;align-items:center;border-bottom:1px solid var(--bd)}
+.org-tmrow:last-child{border-bottom:none}
+.org-tmic{font-size:11px;width:24px;text-align:center;color:var(--mu)}
+.org-tmlbl{font-weight:700;font-size:8px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);width:42px}
+.org-tminp{flex:1;border:none;outline:none;padding:5px 6px;font-size:11px;font-family:var(--head);background:transparent;color:var(--tx)}
+.org-tminp:focus{background:var(--fv)}
+.org-ttbl{width:100%;border-collapse:collapse}
+.org-ttbl thead th{background:var(--sf3);font-weight:700;font-size:8px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);padding:3px 8px;border-bottom:1px solid var(--bd2);text-align:left}
+.org-ttbl tbody td{border-bottom:1px solid var(--bd);padding:0}
+.org-ttbl tbody tr:last-child td{border-bottom:none}
+.org-ttbl input{width:100%;border:none;outline:none;padding:5px 8px;font-size:11px;font-family:var(--head);background:transparent;color:var(--tx)}
+.org-ttbl input:focus{background:var(--fv)}
+.org-tdact{width:22px;text-align:center}
+.org-tdact button{background:none;border:none;cursor:pointer;color:var(--bd2);font-size:11px;padding:2px}
+.org-tdact button:hover{color:#D44}
+.org-tfoot{padding:5px 8px;border-top:1px solid var(--bd)}
+#org-map{width:100%;height:100%}
+.org-map-popup-box{background:var(--sf);border:1px solid var(--bd);border-radius:5px;padding:10px 12px;min-width:180px;max-width:220px;box-shadow:0 4px 16px rgba(0,0,0,.15);font-family:var(--head);pointer-events:auto}
+.omp-team{font-weight:800;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);margin-bottom:2px}
+.omp-obra{font-weight:700;font-size:13px;color:var(--tx);margin-bottom:4px}
+.omp-row{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txs);margin-bottom:2px}
+.omp-divider{border:none;border-top:1px solid var(--bd);margin:6px 0}
+.omp-person{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--txs);padding:2px 0}
+.omp-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.omp-name{font-weight:700;color:var(--tx)}
+.omp-cargo{color:var(--mu);font-size:9px}
+.omp-close{position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;font-size:14px;color:var(--mu);line-height:1;pointer-events:auto}
+.omp-close:hover{color:var(--tx)}
 </style>
 </head>
 <body>
@@ -809,6 +895,102 @@ body{font-family:'Barlow',sans-serif;background:var(--cf);color:var(--ct);min-he
   </div>
   </div>
 
+  <div class="view" id="view-organograma" style="padding:0">
+    <div class="org-tabs">
+      <div class="org-tab on" id="otab-org"    onclick="orgShowTab('org')">Organograma</div>
+      <div class="org-tab"    id="otab-mapa"   onclick="orgShowTab('mapa')">Mapa</div>
+      <div class="org-tab"    id="otab-editor" onclick="orgShowTab('editor')">Editor de equipes</div>
+      <div class="org-tab"    id="otab-mestre" onclick="orgShowTab('mestre')">Hierarquia mestre</div>
+    </div>
+    <!-- TAB: ORGANOGRAMA -->
+    <div class="org-page on" id="opage-org">
+      <div class="org-sh">
+        <div><div class="org-st">Organograma</div><div class="org-ss">Gerado pelas equipes cadastradas — scroll ou Ctrl+roda para zoom</div></div>
+        <div style="margin-left:auto;display:flex;gap:5px">
+          <button class="org-btn" onclick="orgBuild()">⟳ Gerar</button>
+          <button class="org-btn" onclick="orgPrint()">🖨️ Imprimir</button>
+        </div>
+      </div>
+      <div class="org-bar" id="org-filters">
+        <div style="display:flex;gap:3px;align-items:center">
+          <button class="org-btn" onclick="orgZoom(orgScale-0.1)">−</button>
+          <span class="org-zlbl" id="org-zlbl">100%</span>
+          <button class="org-btn" onclick="orgZoom(orgScale+0.1)">+</button>
+          <button class="org-btn" onclick="orgZoom(1)" style="margin-left:2px">↩</button>
+          <button class="org-btn" onclick="orgFit()" style="margin-left:2px">⊡ Fit</button>
+        </div>
+      </div>
+      <div class="cvwrap" id="org-cvwrap">
+        <canvas id="org-cv-canvas"></canvas>
+        <div id="org-cv-nodes"></div>
+        <div id="org-empty" style="display:flex;align-items:center;justify-content:center;height:100%;font-size:11px;color:var(--mu);flex-direction:column;gap:8px">
+          <span style="font-size:26px">📋</span>Clique em <strong style="color:var(--ambm)">⟳ Gerar</strong> para montar o organograma
+        </div>
+      </div>
+    </div>
+    <!-- TAB: MAPA -->
+    <div class="org-page" id="opage-mapa">
+      <div class="org-sh">
+        <div><div class="org-st">Mapa de equipes</div><div class="org-ss">Localização das equipes por obra — clique no pin para ver detalhes</div></div>
+        <div style="margin-left:auto;display:flex;gap:5px">
+          <button class="org-btn" onclick="orgMapBuild()">⟳ Atualizar</button>
+        </div>
+      </div>
+      <div id="org-map-wrap" style="position:relative;height:calc(100vh - 210px);min-height:400px;border:1px solid var(--bd);border-radius:5px;overflow:hidden;background:#e8f0e4">
+        <div id="org-map"></div>
+        <div id="org-map-empty" style="display:flex;align-items:center;justify-content:center;height:100%;font-size:11px;color:var(--mu);flex-direction:column;gap:8px">
+          <span style="font-size:26px">🗺️</span>Clique em <strong style="color:var(--ambm)">⟳ Atualizar</strong> para carregar o mapa
+        </div>
+        <div id="org-map-popup" style="display:none;position:absolute;z-index:1000;pointer-events:none"></div>
+      </div>
+    </div>
+    <!-- TAB: EDITOR -->
+    <div class="org-page" id="opage-editor">
+      <div class="org-sh">
+        <div><div class="org-st">Editor de equipes</div><div class="org-ss">Pares Nome / Cargo por equipe — Obra e Veículo no topo de cada coluna</div></div>
+        <div style="margin-left:auto;display:flex;gap:5px;flex-wrap:wrap">
+          <button class="org-btn" onclick="orgAddTeam()">+ Equipe</button>
+          <button class="org-btn" onclick="document.getElementById('org-csv-in').click()">📂 CSV/Excel</button>
+          <input type="file" id="org-csv-in" accept=".csv,.xlsx,.xls" style="display:none" onchange="orgHandleImport(this.files[0])">
+          <button class="org-btn" onclick="orgExportCSV()">📥 Exportar</button>
+          <button class="org-btn ok" onclick="orgSave()">💾 Salvar</button>
+        </div>
+      </div>
+      <div class="org-teams-scroll" id="org-teams-wrap"></div>
+      <div style="margin-top:8px;text-align:center">
+        <button class="org-btn ghost" onclick="orgAddRowAll()">+ Linha em todas as equipes</button>
+      </div>
+    </div>
+    <!-- TAB: MESTRE -->
+    <div class="org-page" id="opage-mestre">
+      <div class="org-sh">
+        <div><div class="org-st">Hierarquia mestre</div>
+          <div class="org-ss">Ordem dos cargos — ✅ Compartilhado = aparece uma vez no topo, ligado a todas as equipes</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:5px">
+          <button class="org-btn" onclick="orgAddMestre()">+ Cargo</button>
+          <button class="org-btn ok" onclick="orgSave()">💾 Salvar</button>
+        </div>
+      </div>
+      <div style="background:var(--sf);border:1px solid var(--bd);border-radius:4px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--sf2)">
+            <th style="padding:5px 10px;text-align:center;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);border-bottom:1px solid var(--bd2)">Nível</th>
+            <th style="padding:5px 10px;text-align:left;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);border-bottom:1px solid var(--bd2)">Ícone</th>
+            <th style="padding:5px 10px;text-align:left;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);border-bottom:1px solid var(--bd2)">Cargo</th>
+            <th style="padding:5px 10px;text-align:left;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);border-bottom:1px solid var(--bd2)">Aliases</th>
+            <th style="padding:5px 10px;text-align:center;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);border-bottom:1px solid var(--bd2)">Cor fundo</th>
+            <th style="padding:5px 10px;text-align:center;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);border-bottom:1px solid var(--bd2)">Cor texto</th>
+            <th style="padding:5px 10px;text-align:center;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);border-bottom:1px solid var(--bd2)">Lateral</th>
+            <th style="padding:5px 10px;text-align:center;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);border-bottom:1px solid var(--bd2)">Compartilhado</th>
+            <th style="border-bottom:1px solid var(--bd2)"></th>
+          </tr></thead>
+          <tbody id="org-mestre-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- MODAL SOLICITAÇÃO COLABORADOR -->
@@ -1141,7 +1323,8 @@ const db    = getFirestore(fbApp);
 const CACHE = {};
 const CHAVES = ['forte_obras','forte_funcs','forte_encs','forte_regs',
                 'forte_veiculos','forte_colabs','forte_abonos',
-                'forte_feriados','forte_admin_senha'];
+                'forte_feriados','forte_admin_senha',
+                'forte_org_teams','forte_org_mestre'];
 
 function chaveParaDoc(k) { return k.replace('forte_', ''); }
 
@@ -1731,7 +1914,8 @@ function iniciarApp() {
     nav.innerHTML = '<button class="nav-btn active" data-view="hist">Historico Geral</button>'
                   + '<button class="nav-btn" data-view="banco">Espelho de Horas</button>'
                   + '<button class="nav-btn" data-view="sols">Solicitações <span class="nav-badge hidden" id="sols-nav-badge"></span></button>'
-                  + '<button class="nav-btn" data-view="adm">Administracao</button>';
+                  + '<button class="nav-btn" data-view="adm">Administracao</button>'
+                  + '<button class="nav-btn" data-view="organograma">Organograma</button>';
     document.getElementById('hist-title').textContent = 'Historico Geral';
     document.getElementById('hist-sub').textContent   = 'Todos os apontamentos da empresa';
     document.getElementById('h-enc').style.display    = 'block';
@@ -1741,11 +1925,13 @@ function iniciarApp() {
     renderHist();
     setTimeout(atualizarBadgeSols, 0);
     setTimeout(atualizarBadgeFrota, 0);
+    setTimeout(orgInit, 0);
   } else if (sessao.tipo === 'sup') {
     nav.innerHTML = '<button class="nav-btn active" data-view="form">Novo Registro</button>'
                   + '<button class="nav-btn" data-view="hist">Meu Historico</button>'
                   + '<button class="nav-btn" data-view="banco">Espelho de Horas</button>'
-                  + '<button class="nav-btn" data-view="sols">Solicitações <span class="nav-badge hidden" id="sols-nav-badge"></span></button>';
+                  + '<button class="nav-btn" data-view="sols">Solicitações <span class="nav-badge hidden" id="sols-nav-badge"></span></button>'
+                  + '<button class="nav-btn" data-view="organograma">Organograma</button>';
     document.getElementById('hist-title').textContent = 'Meu Historico';
     document.getElementById('hist-sub').textContent   = 'Seus apontamentos registrados';
     document.getElementById('h-enc').style.display    = 'none';
@@ -1755,6 +1941,7 @@ function iniciarApp() {
     verificarPendente();
     setTimeout(atualizarBadgeSols, 0);
     setTimeout(atualizarBadgeFrota, 0);
+    setTimeout(orgInit, 0);
   } else if (sessao.tipo === 'enc') {
     nav.innerHTML = '<button class="nav-btn active" data-view="form">Novo Registro</button>'
                   + '<button class="nav-btn" data-view="hist">Meu Historico</button>'
@@ -4748,6 +4935,672 @@ document.getElementById('btn-salvar-manut-ok').addEventListener('click', functio
   renderManutencao();
   atualizarBadgeFrota();
 });
+
+// ═══════════════════════════════════════════════════════════════
+// ORGANOGRAMA
+// ═══════════════════════════════════════════════════════════════
+var ORG_TC=['#C99200','#2563eb','#16a34a','#d97706','#7c3aed','#db2777','#0891b2','#059669','#dc2626','#0d9488'];
+var ORG_NW=118,ORG_NH=72,ORG_CHH=42,ORG_GX=10,ORG_GY=38;
+var orgTeams=[],orgMestre=[],orgNodes=[],orgEdges=[],orgVisTeams=new Set();
+var orgScale=1,orgDrag=null,orgPan=null;
+
+var ORG_DM=[
+  {id:ouid(),cargo:'Diretor Operacional',aliases:'diretor operacional,diretor,diretoria', icon:'🎯',shared:true,  bgColor:'#2a2060',txColor:'#b8adff',nivel:1},
+  {id:ouid(),cargo:'Dir. Comercial',     aliases:'diretor comercial,dir comercial',       icon:'💼',shared:true,  bgColor:'#1e3355',txColor:'#90c4ff',nivel:1},
+  {id:ouid(),cargo:'Dir. Financeiro',    aliases:'diretor financeiro,dir financeiro',     icon:'💰',shared:true,  bgColor:'#1e3355',txColor:'#90c4ff',nivel:1},
+  {id:ouid(),cargo:'Jurídico',         aliases:'juridico,corp juridico,juridica',  icon:'⚖️',shared:true,  bgColor:'#1a3020',txColor:'#5de0a0',nivel:1,lateral:true},
+  {id:ouid(),cargo:'Supervisão',         aliases:'supervisão,supervisor',                 icon:'📋',shared:true,  bgColor:'#1a3060',txColor:'#8bbfff',nivel:3},
+  {id:ouid(),cargo:'Encarregado',        aliases:'encarregado',                           icon:'👷',shared:false, bgColor:'#0d4030',txColor:'#5de0a0',nivel:4},
+  {id:ouid(),cargo:'Engenheiro',         aliases:'engenheiro',                            icon:'📐',shared:false, bgColor:'#0d4030',txColor:'#5de0a0',nivel:4},
+  {id:ouid(),cargo:'Operador',           aliases:'operador',                              icon:'🔧',shared:false, bgColor:'#1a2a50',txColor:'#7ab4ff',nivel:5},
+  {id:ouid(),cargo:'Soldador',           aliases:'soldador',                              icon:'⚙️',shared:false, bgColor:'#2a2060',txColor:'#b8adff',nivel:5},
+  {id:ouid(),cargo:'Caldereiro',         aliases:'caldereiro',                            icon:'🔥',shared:false, bgColor:'#3d2800',txColor:'#ffb940',nivel:5},
+  {id:ouid(),cargo:'Ajudante',           aliases:'ajudante,auxiliar',                     icon:'🧰',shared:false, bgColor:'#3a1a10',txColor:'#ff9070',nivel:6},
+];
+
+function ouid(){return Math.random().toString(36).slice(2,9)}
+function onorm(s){return (s||'').toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g,'')}
+function oesc(s){return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
+function orgGetRK(raw){
+  var r=onorm(raw);
+  for(var i=0;i<orgMestre.length;i++){
+    var m=orgMestre[i];
+    var aliases=(m.aliases||m.cargo).split(',').map(function(a){return onorm(a.trim())});
+    if(aliases.some(function(a){return a&&r.includes(a)})) return onorm(m.cargo);
+  }
+  return 'outro';
+}
+function orgGetMeta(rk){
+  var m=orgMestre.find(function(m){return onorm(m.cargo)===rk});
+  return m?{icon:m.icon,shared:m.shared,idx:m.nivel||orgMestre.indexOf(m)}:{icon:'👤',shared:false,idx:99};
+}
+function orgGetBadge(rk){
+  var m=orgMestre.find(function(m){return onorm(m.cargo)===rk});
+  if(m&&m.bgColor&&m.txColor) return 'background:'+m.bgColor+';color:'+m.txColor;
+  var s={diretor:'background:#2a2060;color:#b8adff',gerente:'background:#1a3060;color:#8bbfff',
+    'supervisão':'background:#1a3060;color:#8bbfff',supervisor:'background:#1a3060;color:#8bbfff',
+    encarregado:'background:#0d4030;color:#5de0a0',engenheiro:'background:#0d4030;color:#5de0a0',
+    operador:'background:#1a2a50;color:#7ab4ff',
+    caldereiro:'background:#3d2800;color:#ffb940',soldador:'background:#2a2060;color:#b8adff',
+    ajudante:'background:#3a1a10;color:#ff9070','auxiliar':'background:#3a1a10;color:#ff9070'};
+  return s[rk]||'background:#2a2820;color:#908D86';
+}
+
+function orgShowTab(t){
+  ['org','mapa','editor','mestre'].forEach(function(k){
+    document.getElementById('opage-'+k).classList.toggle('on',k===t);
+    document.getElementById('otab-'+k).classList.toggle('on',k===t);
+  });
+  if(t==='org') orgBuild();
+  if(t==='mapa') orgMapBuild();
+}
+
+// ── SAVE / LOAD ──────────────────────────────────────────────
+function orgSave(){
+  sset('forte_org_teams', orgTeams);
+  sset('forte_org_mestre', orgMestre);
+  toast('Organograma salvo!', 'ok');
+}
+
+function orgLoad(){
+  var d_teams  = sget('forte_org_teams');
+  var d_mestre = sget('forte_org_mestre');
+  orgTeams  = d_teams  || [];
+  orgMestre = (d_mestre && d_mestre.length) ? d_mestre : ORG_DM.map(function(m){return Object.assign({},m)});
+  orgRenderTeams();
+  orgRenderMestre();
+}
+
+// ── EDITOR ────────────────────────────────────────────────────
+function orgRenderTeams(){
+  var w=document.getElementById('org-teams-wrap');w.innerHTML='';
+  orgTeams.forEach(function(t,ti){w.appendChild(orgMkCard(t,ti));});
+}
+function orgMkCard(t,ti){
+  var c=ORG_TC[ti%ORG_TC.length];
+  var d=document.createElement('div');d.className='org-tcard';d.id='otc-'+t.id;
+  d.innerHTML='<div class="org-thead">'
+    +'<div class="org-tdot" style="background:'+c+'"></div>'
+    +'<input class="org-tname" value="'+oesc(t.name)+'" onchange="orgRenameT(\''+t.id+'\',this.value)">'
+    +'<button class="org-btnx" onclick="orgRemoveT(\''+t.id+'\')">✕</button>'
+    +'</div>'
+    +'<div class="org-tmeta">'
+    +'<div class="org-tmrow"><span class="org-tmic">📍</span><span class="org-tmlbl">Obra</span>'
+    +'<input class="org-tminp" value="'+oesc(t.obra||'')+'" placeholder="Local / obra" onchange="orgUpdateMeta(\''+t.id+'\',\'obra\',this.value)"></div>'
+    +'<div class="org-tmrow"><span class="org-tmic">🚗</span><span class="org-tmlbl">Veículo</span>'
+    +'<input class="org-tminp" value="'+oesc(t.veiculo||'')+'" placeholder="Placa / modelo" onchange="orgUpdateMeta(\''+t.id+'\',\'veiculo\',this.value)"></div>'
+    +'</div>'
+    +'<table class="org-ttbl"><thead><tr><th>Nome</th><th>Cargo</th><th></th></tr></thead>'
+    +'<tbody id="otb-'+t.id+'"></tbody></table>'
+    +'<div class="org-tfoot"><button class="org-btn ghost" style="width:100%;justify-content:center" onclick="orgAddRow(\''+t.id+'\')">+ Linha</button></div>';
+  var tb=d.querySelector('tbody');
+  t.rows.forEach(function(r,ri){tb.appendChild(orgMkRow(t.id,r,ri));});
+  return d;
+}
+function orgMkRow(tid,row,ri){
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td><input value="'+oesc(row.name)+'" placeholder="Nome" onchange="orgUpCell(\''+tid+'\','+ri+',\'name\',this.value)"></td>'
+    +'<td><input value="'+oesc(row.cargo)+'" placeholder="Cargo" style="color:var(--txs)" onchange="orgUpCell(\''+tid+'\','+ri+',\'cargo\',this.value)"></td>'
+    +'<td class="org-tdact"><button onclick="orgRemoveRow(\''+tid+'\','+ri+')">✕</button></td>';
+  return tr;
+}
+function orgAddTeam(){orgTeams.push({id:ouid(),name:'Equipe '+(orgTeams.length+1),obra:'',veiculo:'',rows:[{name:'',cargo:''}]});orgRenderTeams();document.getElementById('org-teams-wrap').scrollLeft=99999}
+function orgRenameT(id,v){var t=orgTeams.find(function(t){return t.id===id});if(t)t.name=v}
+function orgUpdateMeta(id,f,v){var t=orgTeams.find(function(t){return t.id===id});if(t)t[f]=v}
+function orgRemoveT(id){if(!confirm('Remover equipe?'))return;orgTeams=orgTeams.filter(function(t){return t.id!==id});orgRenderTeams()}
+function orgAddRow(tid){var t=orgTeams.find(function(t){return t.id===tid});if(!t)return;t.rows.push({name:'',cargo:''});var tb=document.getElementById('otb-'+tid);var ri=t.rows.length-1;tb.appendChild(orgMkRow(tid,t.rows[ri],ri));tb.lastElementChild.querySelector('input').focus()}
+function orgAddRowAll(){orgTeams.forEach(function(t){t.rows.push({name:'',cargo:''})});orgRenderTeams()}
+function orgRemoveRow(tid,ri){var t=orgTeams.find(function(t){return t.id===tid});if(!t)return;t.rows.splice(ri,1);var tb=document.getElementById('otb-'+tid);tb.innerHTML='';t.rows.forEach(function(r,i){tb.appendChild(orgMkRow(tid,r,i))})}
+function orgUpCell(tid,ri,f,v){var t=orgTeams.find(function(t){return t.id===tid});if(t&&t.rows[ri])t.rows[ri][f]=v}
+
+// ── MESTRE ────────────────────────────────────────────────────
+function orgRenderMestre(){
+  var tb=document.getElementById('org-mestre-body');tb.innerHTML='';
+  var sorted=orgMestre.slice().sort(function(a,b){return (a.nivel||99)-(b.nivel||99)});
+  sorted.forEach(function(m,i){
+    var bg=m.bgColor||'#2a2820', tx=m.txColor||'#908D86';
+    var nv=m.nivel||i+1;
+    var tr=document.createElement('tr');
+    tr.innerHTML=
+      '<td style="padding:4px 8px;text-align:center;width:60px">'
+        +'<input type="number" value="'+nv+'" min="1" max="99" title="Nível hierárquico — mesmo número = mesma linha no organograma" '
+        +'style="width:46px;border:1px solid var(--bd);border-radius:2px;background:var(--sf2);text-align:center;padding:3px 4px;font-family:var(--head);font-weight:700;font-size:11px;color:var(--ambm)" '
+        +'onchange="orgUpM(\''+m.id+'\',\'nivel\',parseInt(this.value)||1);orgRenderMestre()">'
+      +'</td>'
+      +'<td style="padding:4px 10px"><input value="'+oesc(m.icon)+'" style="width:30px;border:1px solid var(--bd);border-radius:2px;background:var(--sf2);text-align:center;padding:2px;font-size:14px" onchange="orgUpM(\''+m.id+'\',\'icon\',this.value)"></td>'
+      +'<td style="padding:4px 10px"><input value="'+oesc(m.cargo)+'" style="border:1px solid var(--bd);border-radius:2px;background:var(--sf2);padding:3px 7px;font-family:var(--head);font-weight:700;font-size:10px;width:140px" onchange="orgUpM(\''+m.id+'\',\'cargo\',this.value)"></td>'
+      +'<td style="padding:4px 10px"><input value="'+oesc(m.aliases)+'" placeholder="alias1,alias2" style="border:1px solid var(--bd);border-radius:2px;background:var(--sf2);padding:3px 7px;font-size:11px;width:160px;color:var(--txs)" onchange="orgUpM(\''+m.id+'\',\'aliases\',this.value)"></td>'
+      +'<td style="padding:4px 10px;text-align:center">'
+        +'<div style="display:flex;align-items:center;gap:5px;justify-content:center">'
+          +'<input type="color" value="'+bg+'" title="Cor do fundo" style="width:28px;height:24px;border:1px solid var(--bd);border-radius:2px;cursor:pointer;padding:1px" onchange="orgUpM(\''+m.id+'\',\'bgColor\',this.value);orgMstreRefreshBadge(\'badge-'+m.id+'\',this.value,null)">'
+          +'<span id="badge-'+m.id+'" style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:2px;background:'+bg+';color:'+tx+'">'+oesc(m.cargo)+'</span>'
+        +'</div>'
+      +'</td>'
+      +'<td style="padding:4px 10px;text-align:center">'
+        +'<input type="color" value="'+tx+'" title="Cor do texto" style="width:28px;height:24px;border:1px solid var(--bd);border-radius:2px;cursor:pointer;padding:1px" onchange="orgUpM(\''+m.id+'\',\'txColor\',this.value);orgMstreRefreshBadge(\'badge-'+m.id+'\',null,this.value)">'
+      +'</td>'
+      +'<td style="padding:4px 10px;text-align:center"><input type="checkbox" '+(m.lateral?'checked':'')+' title="Fica na mesma altura do nível anterior, posicionado lateralmente" onchange="orgUpM(\''+m.id+'\',\'lateral\',this.checked)"></td>'
+      +'<td style="padding:4px 10px;text-align:center"><input type="checkbox" '+(m.shared?'checked':'')+' title="Aparece uma vez no topo, compartilhado por todas as equipes" onchange="orgUpM(\''+m.id+'\',\'shared\',this.checked)"></td>'
+      +'<td style="padding:4px 10px"><button class="org-btn" style="padding:2px 7px;color:#D44;border-color:#D4444422" onclick="orgRmM(\''+m.id+'\')">✕</button></td>';
+    tr.style.borderBottom='1px solid var(--bd)';
+    tb.appendChild(tr);
+  });
+}
+
+function orgPrint(){
+  if(!orgNodes.length){alert('Gere o organograma antes de imprimir.');return;}
+  var cv=document.getElementById('org-cv-canvas');
+  var w=parseInt(cv.width)||1200;
+  var h=parseInt(cv.height)||800;
+  var imgData=cv.toDataURL('image/png');
+  var nodesHtml='';
+  orgNodes.forEach(function(nd){
+    if(!nd.shared&&!orgVisTeams.has(nd.teamIdx))return;
+    var color=nd.teamIdx>=0?ORG_TC[nd.teamIdx%ORG_TC.length]:'#555';
+    if(nd.type==='chip'){
+      var isObra=nd.kind==='obra';
+      nodesHtml+='<div style="position:absolute;left:'+nd.x+'px;top:'+nd.y+'px;width:'+ORG_NW+'px;background:#F2F0EB;border:1px solid #C8C5BE;border-radius:3px;overflow:hidden;font-family:Montserrat,sans-serif">'
+        +'<div style="height:2px;background:'+color+';border-radius:3px 3px 0 0"></div>'
+        +'<div style="display:flex;align-items:center;padding:5px 7px 6px;gap:5px">'
+        +'<span style="font-size:12px">'+(isObra?'📍':'🚗')+'</span>'
+        +'<div><div style="font-weight:700;font-size:7px;letter-spacing:.07em;text-transform:uppercase;color:#908D86;line-height:1;margin-bottom:1px">'+(isObra?'Obra':'Veículo')+'</div>'
+        +'<div style="font-weight:700;font-size:9px;color:#1A1916;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+oesc(nd.label)+'</div>'
+        +'</div></div></div>';
+      return;
+    }
+    var meta=orgGetMeta(nd.rk);
+    var badge=orgGetBadge(nd.rk);
+    nodesHtml+='<div style="position:absolute;left:'+nd.x+'px;top:'+nd.y+'px;width:'+ORG_NW+'px;background:#F2F0EB;border:1px solid '+(nd.shared?'#AEA9A0':'#C8C5BE')+';border-style:'+(nd.shared?'dashed':'solid')+';border-radius:3px;font-family:Montserrat,sans-serif">'
+      +(nd.shared?'<div style="height:2px;border-radius:3px 3px 0 0"></div>':'<div style="height:2px;background:'+color+';border-radius:3px 3px 0 0"></div>')
+      +'<span style="font-size:14px;display:block;padding:4px 7px 1px">'+meta.icon+'</span>'
+      +'<div style="font-weight:700;font-size:10px;padding:0 7px 1px;line-height:1.25;word-break:break-word;color:#1A1916">'+oesc(nd.name)+'</div>'
+      +'<span style="display:inline-block;font-weight:700;font-size:8px;letter-spacing:.04em;text-transform:uppercase;padding:1px 5px;border-radius:2px;margin:2px 7px 6px;'+badge+'">'+oesc(nd.cargoRaw)+'</span>'
+      +'</div>';
+  });
+  var html='<!DOCTYPE html><html><head>'
+    +'<meta charset="UTF-8">'
+    +'<title>FORTE — Organograma</title>'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{background:#fff;font-family:Montserrat,Arial,sans-serif;padding:12px}'
+    +'.pbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:3px solid #C99200}'
+    +'@media print{'
+    +'  @page{size:landscape;margin:6mm}'
+    +'  .no-print{display:none!important}'
+    +'  body{padding:0}'
+    +'}'
+    +'</style>'
+    +'</head><body>'
+    +'<div class="pbar no-print">'
+    +'<span style="font-weight:800;font-size:18px;color:#C99200;letter-spacing:.06em;font-family:Arial,sans-serif">FORTE</span>'
+    +'<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#5A5852;margin-right:auto">Organograma</span>'
+    +'<span style="font-size:11px;color:#908D86">'+new Date().toLocaleDateString('pt-BR')+'</span>'
+    +'<button onclick="window.print()" style="padding:5px 14px;background:#C99200;color:#1E1C18;border:none;border-radius:3px;font-weight:700;font-size:11px;cursor:pointer">🖨️ Imprimir</button>'
+    +'<button onclick="window.close()" style="padding:5px 12px;background:#3A3835;color:#aaa;border:none;border-radius:3px;font-weight:700;font-size:11px;cursor:pointer">✕ Fechar</button>'
+    +'</div>'
+    +'<div style="position:relative;width:'+w+'px;height:'+h+'px">'
+    +'<img src="'+imgData+'" style="position:absolute;top:0;left:0;width:'+w+'px;height:'+h+'px;z-index:0">'
+    +'<div style="position:absolute;top:0;left:0;width:'+w+'px;height:'+h+'px;z-index:1">'+nodesHtml+'</div>'
+    +'</div>'
+    +'</body></html>';
+  var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  window.open(url,'_blank');
+  setTimeout(function(){URL.revokeObjectURL(url);},20000);
+}
+
+function orgMstreRefreshBadge(badgeId,newBg,newTx){
+  var el=document.getElementById(badgeId);if(!el)return;
+  if(newBg)el.style.background=newBg;
+  if(newTx)el.style.color=newTx;
+}
+function orgAddMestre(){
+  var maxNivel=orgMestre.reduce(function(acc,m){return Math.max(acc,m.nivel||1)},1);
+  orgMestre.push({id:ouid(),cargo:'Novo cargo',aliases:'',icon:'👤',shared:false,bgColor:'#2a2820',txColor:'#908D86',nivel:maxNivel+1});
+  orgRenderMestre();
+}
+function orgUpM(id,f,v){var m=orgMestre.find(function(m){return m.id===id});if(m)m[f]=v}
+function orgRmM(id){orgMestre=orgMestre.filter(function(m){return m.id!==id});orgRenderMestre()}
+
+// ── BUILD ─────────────────────────────────────────────────────
+function orgBuild(){
+  orgNodes=[];orgEdges=[];
+  document.getElementById('org-empty').style.display='none';
+  if(!orgTeams.length){
+    document.getElementById('org-empty').style.display='flex';return;
+  }
+  var idc=0;
+  var COL_W=ORG_NW+24;
+  var sMap={};
+  orgTeams.forEach(function(t){
+    t.rows.forEach(function(r){
+      if(!r.name)return;
+      var rk=orgGetRK(r.cargo),meta=orgGetMeta(rk);
+      if(meta.shared){
+        var k=onorm(r.name)+'|'+rk;
+        if(!sMap[k])sMap[k]={id:'n'+(++idc),type:'person',name:r.name,cargoRaw:r.cargo,rk:rk,shared:true,teamIdx:-1,nH:ORG_NH,x:0,y:0};
+      }
+    });
+  });
+  var sNodes=Object.values(sMap);
+  var fieldTeams=orgTeams.filter(function(t){
+    var hasNonShared=t.rows.some(function(r){return r.name&&!orgGetMeta(orgGetRK(r.cargo)).shared});
+    var hasLocation=(t.obra&&t.obra.trim())||(t.veiculo&&t.veiculo.trim());
+    return hasNonShared||hasLocation;
+  });
+  var canvasW=Math.max(900, fieldTeams.length*COL_W+80);
+  var curY=28;
+  var lateralNodes=sNodes.filter(function(nd){
+    var m=orgMestre.find(function(m){return onorm(m.cargo)===nd.rk});
+    return m&&m.lateral;
+  });
+  var centralNodes=sNodes.filter(function(nd){
+    var m=orgMestre.find(function(m){return onorm(m.cargo)===nd.rk});
+    return !m||!m.lateral;
+  });
+  var sByLvl={};
+  centralNodes.forEach(function(nd){
+    var l=orgGetMeta(nd.rk).idx;
+    if(!sByLvl[l])sByLvl[l]=[];
+    sByLvl[l].push(nd);
+  });
+  var sLvls=Object.keys(sByLvl).map(Number).sort(function(a,b){return a-b});
+  sLvls.forEach(function(lvl){
+    var g=sByLvl[lvl];
+    var tw=g.length*(ORG_NW+ORG_GX)-ORG_GX;
+    var sx=(canvasW-tw)/2;
+    g.forEach(function(nd,i){
+      nd.x=sx+i*(ORG_NW+ORG_GX);
+      nd.y=curY;
+      orgNodes.push(nd);
+    });
+    curY+=ORG_NH+ORG_GY;
+  });
+  if(sLvls.length && lateralNodes.length){
+    var lvl1=sByLvl[sLvls[0]];
+    var firstLvlY=lvl1[0].y;
+    var firstLvlX=lvl1[0].x;
+    lateralNodes.forEach(function(nd,i){
+      nd.x = firstLvlX - (lateralNodes.length-i)*(ORG_NW+ORG_GX);
+      nd.y = firstLvlY;
+      orgNodes.push(nd);
+    });
+  }
+  for(var li=1;li<sLvls.length;li++){
+    var parents=sByLvl[sLvls[li-1]];
+    var children=sByLvl[sLvls[li]];
+    children.forEach(function(cn){
+      var closest=parents[0];
+      var minDist=Math.abs((cn.x||0)-(closest.x||0));
+      parents.forEach(function(p){
+        var d=Math.abs((cn.x||0)-(p.x||0));
+        if(d<minDist){minDist=d;closest=p;}
+      });
+      orgEdges.push({from:closest.id,to:cn.id});
+    });
+  }
+  if(sLvls.length && lateralNodes.length){
+    var lvl1Nodes=sByLvl[sLvls[0]];
+    lateralNodes.forEach(function(ln){
+      var closest=lvl1Nodes[0];
+      var minDist=Math.abs((ln.x||0)-(closest.x||0));
+      lvl1Nodes.forEach(function(p){
+        var d=Math.abs((ln.x||0)-(p.x||0));
+        if(d<minDist){minDist=d;closest=p;}
+      });
+      orgEdges.push({from:closest.id,to:ln.id});
+    });
+  }
+  var sBottom=curY;
+  orgVisTeams=new Set(orgTeams.map(function(_,i){return i}));
+  var lowestSharedLvl=sLvls.length?sLvls[sLvls.length-1]:null;
+  var lowestSharedNodes=lowestSharedLvl!=null?sByLvl[lowestSharedLvl]:[];
+  fieldTeams.forEach(function(team,ti){
+    var origTi=orgTeams.indexOf(team);
+    var cx=40+ti*COL_W+ORG_NW/2;
+    var cy=sBottom+14;
+    var tNodes=[],chips=[];
+    var chipX=cx-ORG_NW/2;
+    if(team.obra&&team.obra.trim()){
+      var c={id:'n'+(++idc),type:'chip',kind:'obra',label:team.obra,teamIdx:origTi,shared:false,nH:ORG_CHH,x:chipX,y:cy};
+      orgNodes.push(c);tNodes.push(c);chips.push(c);cy+=ORG_CHH+6;
+    }
+    if(team.veiculo&&team.veiculo.trim()){
+      var c2={id:'n'+(++idc),type:'chip',kind:'veiculo',label:team.veiculo,teamIdx:origTi,shared:false,nH:ORG_CHH,x:chipX,y:cy};
+      orgNodes.push(c2);tNodes.push(c2);chips.push(c2);cy+=ORG_CHH+6;
+    }
+    if(chips.length) cy+=ORG_GY/2;
+    var members=team.rows.filter(function(r){return r.name&&!orgGetMeta(orgGetRK(r.cargo)).shared});
+    members.sort(function(a,b){return orgGetMeta(orgGetRK(a.cargo)).idx-orgGetMeta(orgGetRK(b.cargo)).idx});
+    members.forEach(function(m){
+      var nd={id:'n'+(++idc),type:'person',name:m.name,cargoRaw:m.cargo,
+        rk:orgGetRK(m.cargo),shared:false,teamIdx:origTi,nH:ORG_NH,x:cx-ORG_NW/2,y:cy};
+      orgNodes.push(nd);tNodes.push(nd);
+      cy+=ORG_NH+ORG_GY;
+    });
+    var pNodes=tNodes.filter(function(nd){return nd.type==='person'});
+    if(chips.length&&pNodes.length){
+      for(var ci=1;ci<chips.length;ci++) orgEdges.push({from:chips[ci-1].id,to:chips[ci].id,chip:true});
+      orgEdges.push({from:chips[chips.length-1].id,to:pNodes[0].id,chip:true});
+    }
+    if(chips.length&&!pNodes.length){
+      for(var ci2=1;ci2<chips.length;ci2++) orgEdges.push({from:chips[ci2-1].id,to:chips[ci2].id,chip:true});
+    }
+    for(var pi2=1;pi2<pNodes.length;pi2++){
+      orgEdges.push({from:pNodes[pi2-1].id,to:pNodes[pi2].id});
+    }
+    if(lowestSharedNodes.length&&tNodes.length){
+      var ft=chips.length?chips[0]:pNodes[0];
+      var closest2=lowestSharedNodes[0];
+      var minD=Math.abs((ft.x||0)-(closest2.x||0));
+      lowestSharedNodes.forEach(function(sn){
+        var d=Math.abs((ft.x||0)-(sn.x||0));
+        if(d<minD){minD=d;closest2=sn;}
+      });
+      if(closest2&&ft) orgEdges.push({from:closest2.id,to:ft.id});
+    }
+  });
+  var maxX=Math.max.apply(null,orgNodes.map(function(nd){return nd.x+ORG_NW+30}));
+  var maxY=Math.max.apply(null,orgNodes.map(function(nd){return nd.y+nd.nH+30}));
+  document.getElementById('org-cv-nodes').style.cssText='position:absolute;top:0;left:0;width:'+maxX+'px;height:'+maxY+'px';
+  var cv=document.getElementById('org-cv-canvas');
+  cv.width=maxX;cv.height=maxY;cv.style.width=maxX+'px';cv.style.height=maxY+'px';
+  orgBuildFilters();
+  orgRender();
+  setTimeout(orgFit,120);
+}
+
+function orgRender(){
+  var ct=document.getElementById('org-cv-nodes');
+  ct.querySelectorAll('.onode,.ochip').forEach(function(e){e.remove()});
+  orgNodes.forEach(function(nd){
+    if(!nd.shared&&!orgVisTeams.has(nd.teamIdx))return;
+    var color=nd.teamIdx>=0?ORG_TC[nd.teamIdx%ORG_TC.length]:'#555';
+    if(nd.type==='chip'){
+      var el=document.createElement('div');
+      el.className='ochip';el.id='on-'+nd.id;
+      el.style.cssText='left:'+nd.x+'px;top:'+nd.y+'px';
+      el.innerHTML='<div class="ochip-stripe" style="background:'+color+'"></div>'
+        +'<div class="ochip-body"><span class="ochip-ico">'+(nd.kind==='obra'?'📍':'🚗')+'</span>'
+        +'<div class="ochip-info"><div class="ochip-lbl">'+(nd.kind==='obra'?'Obra':'Veículo')+'</div>'
+        +'<div class="ochip-val">'+oesc(nd.label)+'</div></div></div>';
+      el.addEventListener('mousedown',function(e){orgStartDrag(e,nd.id)});
+      ct.appendChild(el);return;
+    }
+    var meta=orgGetMeta(nd.rk);
+    var el2=document.createElement('div');
+    el2.className='onode'+(nd.shared?' shared':'');el2.id='on-'+nd.id;
+    el2.style.cssText='left:'+nd.x+'px;top:'+nd.y+'px';
+    el2.innerHTML=(!nd.shared?'<div class="ostripe" style="background:'+color+'"></div>':'<div style="height:2px"></div>')
+      +'<span class="oicon">'+meta.icon+'</span>'
+      +'<div class="oname">'+oesc(nd.name)+'</div>'
+      +'<span class="obadge" style="'+orgGetBadge(nd.rk)+'">'+oesc(nd.cargoRaw)+'</span>';
+    el2.addEventListener('mousedown',function(e){orgStartDrag(e,nd.id)});
+    ct.appendChild(el2);
+  });
+  orgDrawLines();
+}
+
+function orgDrawLines(){
+  var cv=document.getElementById('org-cv-canvas');
+  var ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  orgEdges.forEach(function(e){
+    var fn=orgNodes.find(function(nd){return nd.id===e.from});
+    var tn=orgNodes.find(function(nd){return nd.id===e.to});
+    if(!fn||!tn)return;
+    if(!fn.shared&&!orgVisTeams.has(fn.teamIdx))return;
+    if(!tn.shared&&!orgVisTeams.has(tn.teamIdx))return;
+    var x1=fn.x+ORG_NW/2,y1=fn.y+fn.nH;
+    var x2=tn.x+ORG_NW/2,y2=tn.y;
+    var cy=(y1+y2)/2;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.bezierCurveTo(x1,cy,x2,cy,x2,y2);
+    ctx.strokeStyle=e.chip?'#C8C5BE':'#AEA9A0';
+    ctx.lineWidth=e.chip?1:1.4;
+    ctx.setLineDash(e.chip?[3,3]:[]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(x2-4,y2-7);ctx.lineTo(x2,y2);ctx.lineTo(x2+4,y2-7);
+    ctx.strokeStyle=e.chip?'#C8C5BE':'#AEA9A0';ctx.lineWidth=e.chip?1:1.2;ctx.stroke();
+  });
+}
+
+function orgBuildFilters(){
+  var w=document.getElementById('org-filters');
+  w.querySelectorAll('.org-flt').forEach(function(b){b.remove()});
+  var zg=w.querySelector('div');
+  orgTeams.forEach(function(t,ti){
+    var color=ORG_TC[ti%ORG_TC.length];
+    var btn=document.createElement('button');
+    btn.className='org-flt';btn.textContent=t.name;
+    btn.style.cssText='color:'+color+';border-color:'+color;
+    btn.onclick=function(){
+      orgVisTeams.has(ti)?orgVisTeams.delete(ti):orgVisTeams.add(ti);
+      btn.classList.toggle('off',!orgVisTeams.has(ti));orgRender();
+    };
+    w.insertBefore(btn,zg);
+  });
+}
+
+function orgZoom(v){
+  orgScale=Math.min(Math.max(v,0.25),2);
+  orgScale=Math.round(orgScale*10)/10;
+  document.getElementById('org-zlbl').textContent=Math.round(orgScale*100)+'%';
+  ['org-cv-nodes','org-cv-canvas'].forEach(function(id){
+    var el=document.getElementById(id);
+    el.style.transform='scale('+orgScale+')';el.style.transformOrigin='top left';
+  });
+}
+function orgFit(){
+  if(!orgNodes.length)return;
+  var wrap=document.getElementById('org-cvwrap');
+  var maxX=Math.max.apply(null,orgNodes.map(function(nd){return nd.x+ORG_NW+20}));
+  var maxY=Math.max.apply(null,orgNodes.map(function(nd){return nd.y+nd.nH+20}));
+  var sx=wrap.clientWidth/maxX,sy=wrap.clientHeight/maxY;
+  orgZoom(Math.min(sx,sy,1));
+  wrap.scrollLeft=0;wrap.scrollTop=0;
+}
+
+function orgStartDrag(e,id){
+  e.preventDefault();e.stopPropagation();
+  var nd=orgNodes.find(function(x){return x.id===id});if(!nd)return;
+  var wrap=document.getElementById('org-cvwrap');
+  var rect=wrap.getBoundingClientRect();
+  orgDrag={id:id,sx:(e.clientX-rect.left+wrap.scrollLeft)/orgScale-nd.x,sy:(e.clientY-rect.top+wrap.scrollTop)/orgScale-nd.y};
+  window.addEventListener('mousemove',orgOnDrag);window.addEventListener('mouseup',orgEndDrag);
+}
+function orgOnDrag(e){
+  if(!orgDrag)return;
+  var nd=orgNodes.find(function(x){return x.id===orgDrag.id});
+  var wrap=document.getElementById('org-cvwrap');
+  var rect=wrap.getBoundingClientRect();
+  nd.x=Math.max(0,(e.clientX-rect.left+wrap.scrollLeft)/orgScale-orgDrag.sx);
+  nd.y=Math.max(0,(e.clientY-rect.top+wrap.scrollTop)/orgScale-orgDrag.sy);
+  var el=document.getElementById('on-'+nd.id);
+  if(el){el.style.left=nd.x+'px';el.style.top=nd.y+'px';}
+  orgDrawLines();
+}
+function orgEndDrag(){orgDrag=null;window.removeEventListener('mousemove',orgOnDrag);window.removeEventListener('mouseup',orgEndDrag)}
+
+// Pan canvas — runs immediately since DOM is ready inside this IIFE
+(function(){
+  var wrap=document.getElementById('org-cvwrap');
+  if(!wrap)return;
+  wrap.addEventListener('mousedown',function(e){
+    if(e.target.closest('.onode,.ochip'))return;
+    orgPan={sx:e.clientX+wrap.scrollLeft,sy:e.clientY+wrap.scrollTop};
+    wrap.classList.add('panning');
+  });
+  window.addEventListener('mousemove',function(e){
+    if(!orgPan)return;
+    wrap.scrollLeft=orgPan.sx-e.clientX;wrap.scrollTop=orgPan.sy-e.clientY;
+  });
+  window.addEventListener('mouseup',function(){orgPan=null;if(wrap)wrap.classList.remove('panning')});
+  wrap.addEventListener('wheel',function(e){
+    if(e.ctrlKey||e.metaKey){e.preventDefault();orgZoom(orgScale+(e.deltaY<0?0.1:-0.1));}
+  },{passive:false});
+})();
+
+// ── IMPORT/EXPORT ─────────────────────────────────────────────
+function orgHandleImport(file){
+  if(!file)return;
+  var ext=file.name.split('.').pop().toLowerCase();
+  var r=new FileReader();
+  r.onload=function(e){
+    var wb=ext==='csv'?XLSX.read(e.target.result,{type:'string'}):XLSX.read(e.target.result,{type:'array'});
+    var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+    orgTeams=orgParseCSV(rows);orgRenderTeams();
+  };
+  ext==='csv'?r.readAsText(file):r.readAsArrayBuffer(file);
+}
+function orgParseCSV(rows){
+  if(!rows.length)return[];
+  var keys=Object.keys(rows[0]),res=[];var i=0;
+  while(i<keys.length-1){
+    var a=onorm(keys[i]),b=onorm(keys[i+1]);
+    if((a.includes('nome')||a.includes('name'))&&(b.includes('cargo')||b.includes('role')||b.includes('funcao'))){
+      var lbl=keys[i].replace(/[-–]\s*(nome|name).*/i,'').trim()||'Equipe '+(res.length+1);
+      var r2=rows.map(function(r){return{name:String(r[keys[i]]||'').trim(),cargo:String(r[keys[i+1]]||'').trim()}}).filter(function(r){return r.name&&onorm(r.name)!=='nome'});
+      if(r2.length)res.push({id:ouid(),name:lbl,obra:'',veiculo:'',rows:r2});
+      i+=2;
+    }else i++;
+  }
+  return res;
+}
+function orgExportCSV(){
+  var h=orgTeams.flatMap(function(t){return[t.name+' - Nome',t.name+' - Cargo']});
+  var mr=Math.max.apply(null,orgTeams.map(function(t){return t.rows.length}));
+  var d=[h];
+  for(var ri=0;ri<mr;ri++) d.push(orgTeams.flatMap(function(t){return[t.rows[ri]?t.rows[ri].name:'',t.rows[ri]?t.rows[ri].cargo:'']}));
+  var ws=XLSX.utils.aoa_to_sheet(d);var wb2=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb2,ws,'Equipes');XLSX.writeFile(wb2,'organograma_equipes.xlsx');
+}
+
+// ── MAPA ─────────────────────────────────────────────────────
+var orgMap=null, orgMapMarkers=[], orgGeoCache={};
+
+function orgMapLoadLeaflet(cb){
+  if(window.L){cb();return;}
+  var css=document.createElement('link');
+  css.rel='stylesheet';
+  css.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css';
+  document.head.appendChild(css);
+  var s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js';
+  s.onload=cb;
+  document.head.appendChild(s);
+}
+
+function orgMapBuild(){
+  document.getElementById('org-map-empty').style.display='none';
+  document.getElementById('org-map-popup').style.display='none';
+  orgMapLoadLeaflet(function(){
+    var wrap=document.getElementById('org-map-wrap');
+    var mapEl=document.getElementById('org-map');
+    mapEl.style.cssText='width:100%;height:'+wrap.offsetHeight+'px';
+    if(!orgMap){
+      orgMap=L.map('org-map',{zoomControl:true}).setView([-14.5,-51.5],4);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        attribution:'© OpenStreetMap',maxZoom:18
+      }).addTo(orgMap);
+    } else {
+      orgMapMarkers.forEach(function(m){orgMap.removeLayer(m)});
+      orgMapMarkers=[];
+    }
+    var TC_MAP=['#C99200','#2563eb','#16a34a','#d97706','#7c3aed','#db2777','#0891b2','#059669','#dc2626','#0d9488'];
+    var teams=orgTeams.filter(function(t){return t.obra&&t.obra.trim()});
+    if(!teams.length){
+      document.getElementById('org-map-empty').style.display='flex';
+      return;
+    }
+    var done=0;
+    var cidadeCount={}, cidadeIdx={};
+    teams.forEach(function(t){
+      var c=t.obra.trim();
+      cidadeCount[c]=(cidadeCount[c]||0)+1;
+      cidadeIdx[c]=0;
+    });
+    teams.forEach(function(team,ti){
+      var cidade=team.obra.trim();
+      var total=cidadeCount[cidade];
+      var idx=cidadeIdx[cidade]++;
+      function addMarkerWithOffset(lat,lng){
+        var offsetLat=lat, offsetLng=lng;
+        if(total>1){
+          var angle=(2*Math.PI/total)*idx - Math.PI/2;
+          var radius=0.018;
+          offsetLat=lat+radius*Math.sin(angle);
+          offsetLng=lng+radius*Math.cos(angle);
+        }
+        orgMapAddMarker(team,ti,offsetLat,offsetLng,TC_MAP);
+        done++;
+        if(done===teams.length) setTimeout(function(){orgMap.invalidateSize()},100);
+      }
+      if(orgGeoCache[cidade]){
+        addMarkerWithOffset(orgGeoCache[cidade].lat,orgGeoCache[cidade].lng);
+        return;
+      }
+      fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(cidade+', Brasil')+'&format=json&limit=1')
+        .then(function(r){return r.json();})
+        .then(function(data){
+          if(data&&data[0]){
+            var lat=parseFloat(data[0].lat),lng=parseFloat(data[0].lon);
+            orgGeoCache[cidade]={lat:lat,lng:lng};
+            addMarkerWithOffset(lat,lng);
+          } else { done++; }
+        })
+        .catch(function(){ done++; });
+    });
+  });
+}
+
+function orgMapAddMarker(team,ti,lat,lng,TC_MAP){
+  var color=TC_MAP[ti%TC_MAP.length];
+  var svgPin='<svg xmlns="http://www.w3.org/2000/svg" width="26" height="44" viewBox="0 0 26 44">'
+    +'<ellipse cx="13" cy="43" rx="6" ry="2.5" fill="rgba(0,0,0,0.15)"/>'
+    +'<line x1="13" y1="40" x2="13" y2="18" stroke="'+color+'" stroke-width="2.2" stroke-linecap="round"/>'
+    +'<circle cx="13" cy="10" r="10" fill="#fff" stroke="'+color+'" stroke-width="3"/>'
+    +'<circle cx="13" cy="10" r="5" fill="'+color+'"/>'
+    +'<circle cx="10" cy="7" r="2.5" fill="#fff" opacity="0.35"/>'
+    +'</svg>';
+  var icon=L.divIcon({html:svgPin,iconSize:[26,44],iconAnchor:[13,43],popupAnchor:[0,-43],className:''});
+  var marker=L.marker([lat,lng],{icon:icon}).addTo(orgMap);
+  marker.on('click',function(e){orgMapShowPopup(team,color,e.originalEvent);});
+  orgMapMarkers.push(marker);
+}
+
+function orgMapShowPopup(team,color,evt){
+  var wrap=document.getElementById('org-map-wrap');
+  var popup=document.getElementById('org-map-popup');
+  var members=team.rows.filter(function(r){return r.name});
+  var peopleHtml=members.map(function(r){
+    return '<div class="omp-person">'
+      +'<div class="omp-dot" style="background:'+color+'"></div>'
+      +'<div><span class="omp-name">'+oesc(r.name)+'</span>'
+      +' <span class="omp-cargo">'+oesc(r.cargo)+'</span></div>'
+      +'</div>';
+  }).join('');
+  popup.innerHTML='<div class="org-map-popup-box" style="position:relative">'
+    +'<button class="omp-close" onclick="document.getElementById(\'org-map-popup\').style.display=\'none\'">✕</button>'
+    +'<div class="omp-team">'+oesc(team.name)+'</div>'
+    +'<div class="omp-obra">'+oesc(team.obra)+'</div>'
+    +(team.veiculo?'<div class="omp-row">🚗 '+oesc(team.veiculo)+'</div>':'')
+    +'<hr class="omp-divider">'+peopleHtml+'</div>';
+  var rect=wrap.getBoundingClientRect();
+  var x=evt.clientX-rect.left, y=evt.clientY-rect.top;
+  var pw=220;
+  var left=Math.min(x-pw/2,wrap.offsetWidth-pw-8);
+  var top=y-44-members.length*22;
+  if(top<8) top=y+20;
+  popup.style.cssText='display:block;position:absolute;left:'+Math.max(8,left)+'px;top:'+Math.max(8,top)+'px;z-index:1000';
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+function orgInit(){
+  orgMestre=ORG_DM.map(function(m){return Object.assign({},m)});
+  orgRenderMestre();
+  orgLoad();
+}
 
 })(); // fim do IIFE
 } // fim iniciarSistema
