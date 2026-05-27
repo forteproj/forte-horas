@@ -64,6 +64,11 @@ body{font-family:var(--ds-font);background:var(--cf);color:var(--ct);min-height:
 .ln-btn{width:100%;height:42px;background:var(--ds-dark);color:var(--ds-wh);border:none;border-radius:var(--ds-r-sm);font-family:var(--ds-font);font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:background .15s;margin-top:8px;}
 .ln-btn:hover{background:var(--ds-dark2);}
 .ln-btn:active{transform:scale(.99);}
+.ln-abas{display:flex;background:var(--ds-bg3);border:1px solid var(--ds-bd);border-radius:var(--ds-r-sm);padding:3px;margin-bottom:24px;}
+.ln-aba{flex:1;padding:8px 10px;background:none;border:none;border-radius:3px;font-family:var(--ds-font);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ds-tx3);cursor:pointer;transition:all .15s;}
+.ln-aba.sel{background:var(--ds-dark);color:var(--ds-or);}
+.ln-reset-msg{background:var(--ds-bg2);border:1px solid var(--ds-bd);border-radius:var(--ds-r-sm);padding:14px 16px;font-size:12px;color:var(--ds-tx2);line-height:1.6;}
+.ln-reset-msg strong{display:block;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ds-tx);margin-bottom:6px;}
 @media(max-width:768px){.ln-esq{display:none;}.ln-dir{width:100%;}}
 /* APP */
 .app{display:none;}
@@ -593,16 +598,28 @@ body{font-family:var(--ds-font);background:var(--cf);color:var(--ct);min-height:
     <div class="ln-form">
       <div class="ln-titulo">Entrar no Sistema</div>
       <div class="ln-sub">Insira suas credenciais para acessar</div>
-      <div class="ln-err" id="login-err">Usuário ou senha incorretos.</div>
-      <div class="ln-campo">
-        <label class="ln-lbl" for="l-login">Login</label>
-        <input class="ln-input" type="text" id="l-login" placeholder="seu.login" autocomplete="username" />
+      <div class="ln-abas">
+        <button class="ln-aba sel" onclick="trocaAba('login')">Já Tenho Acesso</button>
+        <button class="ln-aba" onclick="trocaAba('reset')">Redefinir Senha</button>
       </div>
-      <div class="ln-campo">
-        <label class="ln-lbl" for="l-senha">Senha</label>
-        <input class="ln-input" type="password" id="l-senha" placeholder="••••••••" autocomplete="current-password" />
+      <div id="ln-painel-login">
+        <div class="ln-err" id="login-err">Usuário ou senha incorretos.</div>
+        <div class="ln-campo">
+          <label class="ln-lbl" for="l-login">Login</label>
+          <input class="ln-input" type="text" id="l-login" placeholder="seu.login" autocomplete="username" />
+        </div>
+        <div class="ln-campo">
+          <label class="ln-lbl" for="l-senha">Senha</label>
+          <input class="ln-input" type="password" id="l-senha" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button class="ln-btn" id="btn-login">Entrar no Sistema</button>
       </div>
-      <button class="ln-btn" id="btn-login">Entrar no Sistema</button>
+      <div id="ln-painel-reset" style="display:none">
+        <div class="ln-reset-msg">
+          <strong>Redefinir Senha</strong>
+          Para redefinir sua senha, entre em contato com o administrador do sistema.
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1884,6 +1901,12 @@ document.getElementById('confirm-ok').addEventListener('click', function() {
 });
 
 /* LOGIN */
+function trocaAba(aba) {
+  document.querySelectorAll('.ln-aba').forEach(function(b){ b.classList.remove('sel'); });
+  document.querySelector('.ln-aba[onclick="trocaAba(\''+aba+'\')"]').classList.add('sel');
+  document.getElementById('ln-painel-login').style.display = aba === 'login' ? '' : 'none';
+  document.getElementById('ln-painel-reset').style.display = aba === 'reset' ? '' : 'none';
+}
 document.getElementById('btn-login').addEventListener('click', fazerLogin);
 document.getElementById('l-senha').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') fazerLogin();
