@@ -1500,7 +1500,7 @@ async function carregarTudo() {
 
 // Listener em tempo real para registros (encarregado salva → admin vê na hora)
 function ativarListenerRegs() {
-  onSnapshot(doc(db, 'dados', 'forte_regs'), function(snap) {
+  onSnapshot(doc(db, 'dados', 'regs'), function(snap) {
     if (snap.exists()) {
       CACHE['forte_regs'] = JSON.parse(snap.data().valor);
     }
