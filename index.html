@@ -3937,16 +3937,16 @@ function renderObras() {
 
 document.getElementById('lista-obras').addEventListener('click', function(e) {
   var ed = e.target.closest('[data-edit-obra]');
-  if (ed) { abrirModalObra(Number(ed.dataset.editObra)); return; }
+  if (ed) { abrirModalObra(ed.dataset.editObra); return; }
   var dl = e.target.closest('[data-del-obra]');
   if (dl) {
-    var oid = Number(dl.dataset.delObra);
-    confirmar('Excluir esta obra?', function() { sset('forte_obras', getObras().filter(function(o) { return o.id !== oid; })); renderObras(); toast('Obra removida.', 'ok'); });
+    var oid = dl.dataset.delObra;
+    confirmar('Excluir esta obra?', function() { sset('forte_obras', getObras().filter(function(o) { return String(o.id) !== String(oid); })); renderObras(); toast('Obra removida.', 'ok'); });
   }
 });
 
 function abrirModalObra(id) {
-  var o = id ? getObras().find(function(x) { return x.id === id; }) : null;
+  var o = id ? getObras().find(function(x) { return String(x.id) === String(id); }) : null;
   document.getElementById('mo-title').textContent  = o ? 'Editar Obra' : 'Nova Obra';
   document.getElementById('mo-id').value           = o ? o.id : '';
   document.getElementById('mo-nome').value         = o ? o.nome : '';
