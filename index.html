@@ -3468,9 +3468,14 @@ function renderBancoHoras() {
     if (!isAdm) return '<span></span>';
     var canEdit = sessao.tipo === 'admin' || encId === sessao.id;
     if (!canEdit) return '<span></span>';
-    return '<button class="btn-banco-edit-reg" data-regid="' + regId + '" '
+    return '<span style="display:flex;gap:3px;">'
+      + '<button class="btn-banco-edit-reg" data-regid="' + regId + '" '
       + 'style="background:none;border:1px solid var(--cb);border-radius:4px;cursor:pointer;font-size:11px;padding:2px 5px;color:var(--cm);" '
-      + 'title="Editar registro">✏</button>';
+      + 'title="Editar registro">✏</button>'
+      + '<button class="btn-banco-del-reg" data-regid="' + regId + '" '
+      + 'style="background:none;border:1px solid #c0392b;border-radius:4px;cursor:pointer;font-size:11px;padding:2px 5px;color:#c0392b;" '
+      + 'title="Excluir registro">✕</button>'
+      + '</span>';
   }
   function abonarBtn(dStr, fNome) {
     if (!isAdm) return '<span></span>';
@@ -3673,6 +3678,18 @@ function renderBancoHoras() {
     });
   });
 
+  document.querySelectorAll('#banco-lista .btn-banco-del-reg').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var rid = btn.dataset.regid;
+      confirmar('Excluir este apontamento? Esta acao nao pode ser desfeita.', function() {
+        sset('forte_regs', getRegs().filter(function(r) { return String(r.id) !== String(rid); }));
+        renderBancoHoras();
+        toast('Registro excluido.', 'ok');
+      });
+    });
+  });
+
   document.querySelectorAll('#banco-lista .btn-banco-abonar').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -3683,7 +3700,7 @@ function renderBancoHoras() {
   funcs.forEach(function(_, fi) {
     document.getElementById('banco-head-' + fi).addEventListener('click', function(e) {
       if (e.target.closest('.banco-sel') || e.target.closest('.btn-banco-print-ind')
-          || e.target.closest('.btn-banco-edit-reg') || e.target.closest('.btn-banco-abonar')) return;
+          || e.target.closest('.btn-banco-edit-reg') || e.target.closest('.btn-banco-del-reg') || e.target.closest('.btn-banco-abonar')) return;
       var body = document.getElementById('banco-body-' + fi);
       var chev = this.querySelector('.chev');
       var open = body.style.display !== 'none';
