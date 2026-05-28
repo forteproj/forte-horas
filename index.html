@@ -2474,7 +2474,7 @@ function renderHist() {
         obraOpts.push({ id: r.obraId, local: r.local });
       }
     });
-    obraOpts.sort(function(a,b){ return a.local.localeCompare(b.local, 'pt-BR'); });
+    obraOpts.sort(function(a,b){ return (a.local||'').localeCompare((b.local||''), 'pt-BR'); });
     var curObra = selObra.value;
     selObra.innerHTML = '<option value="">Todas as obras</option>';
     obraOpts.forEach(function(o) { selObra.innerHTML += '<option value="' + o.id + '"' + (String(o.id) === curObra ? ' selected' : '') + '>' + o.local + '</option>'; });
@@ -2489,7 +2489,7 @@ function renderHist() {
 
   if (busca) {
     regs = regs.filter(function(r) {
-      if (r.local.toLowerCase().indexOf(busca) >= 0) return true;
+      if ((r.local||'').toLowerCase().indexOf(busca) >= 0) return true;
       if ((r.placa || '').toLowerCase().indexOf(busca) >= 0) return true;
       return r.funcionarios.some(function(f) { return f.nome.toLowerCase().indexOf(busca) >= 0; });
     });
@@ -2750,7 +2750,7 @@ document.getElementById('lista-reg').addEventListener('click', function(e) {
   var pr = e.target.closest('[data-print]');
   if (pr) imprimir(Number(pr.dataset.print));
   var er = e.target.closest('[data-editreg]');
-  if (er) abrirEditReg(Number(er.dataset.editreg));
+  if (er) abrirEditReg(er.dataset.editreg);
   var rj = e.target.closest('[data-resolveraj]');
   if (rj) {
     var parts = rj.dataset.resolveraj.split('__');
@@ -2770,9 +2770,9 @@ document.getElementById('lista-reg').addEventListener('click', function(e) {
   }
   var dr = e.target.closest('[data-delreg]');
   if (dr) {
-    var rid = Number(dr.dataset.delreg);
+    var rid = dr.dataset.delreg;
     confirmar('Excluir este apontamento? Esta acao nao pode ser desfeita.', function() {
-      sset('forte_regs', getRegs().filter(function(r) { return r.id !== rid; }));
+      sset('forte_regs', getRegs().filter(function(r) { return String(r.id) !== String(rid); }));
       renderHist();
       toast('Registro excluido.', 'ok');
     });
@@ -3011,7 +3011,7 @@ function exportarCSV() {
   if (fAno) regs = regs.filter(function(r) { return r.data && r.data.split('-')[0] === fAno; });
   if (fMes) regs = regs.filter(function(r) { return r.data && r.data.split('-')[1] === fMes; });
   if (busca) regs = regs.filter(function(r) {
-    if (r.local.toLowerCase().indexOf(busca) >= 0) return true;
+    if ((r.local||'').toLowerCase().indexOf(busca) >= 0) return true;
     if ((r.placa || '').toLowerCase().indexOf(busca) >= 0) return true;
     return r.funcionarios.some(function(f) { return f.nome.toLowerCase().indexOf(busca) >= 0; });
   });
@@ -3122,7 +3122,7 @@ function erPopularObras(selectedId) {
 function abrirEditReg(id) {
   var regs = getRegs();
   var r = null;
-  for (var i = 0; i < regs.length; i++) { if (regs[i].id === id) { r = regs[i]; break; } }
+  for (var i = 0; i < regs.length; i++) { if (String(regs[i].id) === String(id)) { r = regs[i]; break; } }
   if (!r) return;
 
   document.getElementById('er-id').value    = r.id;
@@ -3147,7 +3147,7 @@ function abrirEditReg(id) {
 }
 
 document.getElementById('btn-salvar-edit-reg').addEventListener('click', function() {
-  var idVal   = Number(document.getElementById('er-id').value);
+  var idVal   = document.getElementById('er-id').value;
   var data    = document.getElementById('er-data').value;
   var placa   = document.getElementById('er-placa').value.trim().toUpperCase();
   var obraId  = document.getElementById('er-obra').value;
@@ -3183,7 +3183,7 @@ document.getElementById('btn-salvar-edit-reg').addEventListener('click', functio
 
   var regs = getRegs();
   for (var j = 0; j < regs.length; j++) {
-    if (regs[j].id === idVal) {
+    if (String(regs[j].id) === String(idVal)) {
       regs[j] = Object.assign({}, regs[j], {
         data: data, placa: placa, obraId: obraId, local: local, obs: obs,
         abonoEq: abonoEq, abonoMotivo: abonoEq ? abonoMot : null,
@@ -3669,7 +3669,7 @@ function renderBancoHoras() {
   document.querySelectorAll('#banco-lista .btn-banco-edit-reg').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      abrirEditReg(Number(btn.dataset.regid));
+      abrirEditReg(btn.dataset.regid);
     });
   });
 
