@@ -1682,32 +1682,36 @@ function calcHENoturna(inicioHE, fimReal) {
   return { heNot: heNot, heDiu: heDiu };
 }
 
-/* Conta minutos reais dentro do periodo noturno (22h-05h), excluindo refeicao */
+/* Overlap em minutos de um intervalo absoluto com a janela noturna (22h-05h) */
+function _notOverlap(startAbs, endAbs) {
+  var total = 0, cursor = startAbs;
+  while (cursor < endAbs) {
+    var mDia = cursor % 1440;
+    var eNot = (mDia >= NOT_INICIO) || (mDia < NOT_FIM);
+    var prox;
+    if (eNot) {
+      if (mDia >= NOT_INICIO) prox = Math.min(endAbs, Math.floor(cursor/1440)*1440 + 1440 + NOT_FIM);
+      else                    prox = Math.min(endAbs, Math.floor(cursor/1440)*1440 + NOT_FIM);
+    } else {
+      var p22 = Math.floor(cursor/1440)*1440 + NOT_INICIO;
+      if (p22 <= cursor) p22 += 1440;
+      prox = Math.min(endAbs, p22);
+    }
+    if (eNot) total += prox - cursor;
+    cursor = prox;
+  }
+  return total;
+}
+
+/* Noturno liquido (22h-05h): bruto do turno menos refeicao se cair na janela */
 function calcHorasNot(entMin, saiMin, temRefeicao) {
   if (saiMin <= entMin) saiMin += 1440;
-  var blocos = temRefeicao
-    ? [[entMin, entMin + GATILHO_REF], [entMin + GATILHO_REF + REFEICAO_MIN, saiMin]]
-    : [[entMin, saiMin]];
-  var total = 0;
-  blocos.forEach(function(b) {
-    var cursor = b[0], fim = b[1];
-    while (cursor < fim) {
-      var mDia = cursor % 1440;
-      var eNot = (mDia >= NOT_INICIO) || (mDia < NOT_FIM);
-      var prox;
-      if (eNot) {
-        if (mDia >= NOT_INICIO) prox = Math.min(fim, Math.floor(cursor/1440)*1440 + 1440 + NOT_FIM);
-        else                    prox = Math.min(fim, Math.floor(cursor/1440)*1440 + NOT_FIM);
-      } else {
-        var p22 = Math.floor(cursor/1440)*1440 + NOT_INICIO;
-        if (p22 <= cursor) p22 += 1440;
-        prox = Math.min(fim, p22);
-      }
-      if (eNot) total += prox - cursor;
-      cursor = prox;
-    }
-  });
-  return total;
+  var brutoNot = _notOverlap(entMin, saiMin);
+  if (!temRefeicao) return brutoNot;
+  var riMin = entMin + GATILHO_REF;
+  var rfMin = riMin + REFEICAO_MIN;
+  var refNot = _notOverlap(riMin, rfMin);
+  return Math.max(0, brutoNot - refNot);
 }
 
 /* Banco de Horas mensal — função pura, sem efeitos colaterais */
@@ -2898,7 +2902,7 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
         if (jor.adPerc === 50)  { totHe50  += jor.liquido; heCell = '<b>' + minToStr(jor.liquido) + '</b> (50%)'; }
         if (jor.adPerc === 100) { totHe100 += jor.liquido; heCell = '<b>' + minToStr(jor.liquido) + '</b> (100%)'; }
         var adicNotCell = '-';
-        if (jor.adicNot > 0) { totAdicNot += jor.adicNot; adicNotCell = '+' + minToStr(Math.round(jor.adicNot)); }
+        if (jor.hrsNot > 0) { totAdicNot += jor.hrsNot; adicNotCell = minToStr(Math.round(jor.hrsNot)); }
         rows += '<tr>'
           + '<td>' + dt + '</td>'
           + '<td>' + r.local + '</td>'
@@ -2919,7 +2923,7 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
   }
 
   var totStr = [];
-  if (totAdicNot > 0) totStr.push('Adicional Noturno: ' + minToStr(Math.round(totAdicNot)));
+  if (totAdicNot > 0) totStr.push('Hrs. Noturnas: ' + minToStr(Math.round(totAdicNot)));
   if (totHe50    > 0) totStr.push('HE 50%: '           + minToStr(Math.round(totHe50)));
   if (totHe100   > 0) totStr.push('HE 100%: '          + minToStr(Math.round(totHe100)));
   totStr.push('Dias sem registro: ' + diasSemReg);
@@ -3303,7 +3307,7 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
           if (tipo === 'domingo') stHe100Dom  += jor.liquido;
           if (tipo === 'feriado') stHe100Fer  += jor.liquido;
           if (tipo === 'normal')  stTrabalhado += jor.liquido;
-          totalAdicNot += jor.adicNot || 0;
+          totalAdicNot += jor.hrsNot || 0;
           var ep = (f.entrada||'').split(':').map(Number);
           var entMin = ep[0]*60 + (ep[1]||0);
           var saiAlm = jor.temRefeicao ? fmtHP(entMin + GATILHO_REF) : '—';
@@ -3311,8 +3315,8 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
           var heMin  = tipo === 'normal' ? Math.max(0, jor.extra) : jor.liquido;
           var heStr  = heMin > 0 ? minToStr(heMin) + ' (' + (jor.adPerc > 0 ? jor.adPerc : 50) + '%)' : '—';
           var heClr  = heMin > 0 ? (jor.adPerc === 100 ? 'color:#880E4F;font-weight:700;' : 'color:#E65100;font-weight:700;') : 'color:#bbb;';
-          var notStr = jor.adicNot > 0 ? '+' + minToStr(Math.round(jor.adicNot)) : '—';
-          var notClr = jor.adicNot > 0 ? 'color:#4527A0;font-weight:700;' : 'color:#bbb;';
+          var notStr = jor.hrsNot > 0 ? minToStr(Math.round(jor.hrsNot)) : '—';
+          var notClr = jor.hrsNot > 0 ? 'color:#4527A0;font-weight:700;' : 'color:#bbb;';
           rows += '<tr style="' + rowBg + '">'
             + '<td>' + dt + '</td>'
             + '<td style="font-size:8px;color:#555;">' + r.local + '</td>'
@@ -3381,7 +3385,7 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
       + '<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:6px;">Resumo do Mês</div>'
       + '<div style="display:flex;flex-direction:column;gap:4px;font-size:9px;">'
       + '<span>Dias abonados: <b>' + abonosStr + '</b></span>'
-      + '<span>Adicional noturno (CLT art.73): <b style="color:#4527A0;">' + adicNotStr + '</b></span>'
+      + '<span>Horas noturnas (22h-05h): <b style="color:#4527A0;">' + adicNotStr + '</b></span>'
       + '</div></div>';
 
     var pageBreak = idx < nomesList.length - 1 ? 'page-break-after:always;' : '';
@@ -3397,7 +3401,7 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
       + '<th style="text-align:center;">Início</th><th style="text-align:center;">Saída Alm.</th>'
       + '<th style="text-align:center;">Ret. Alm.</th><th style="text-align:center;">Término</th>'
       + '<th style="text-align:center;">Abono</th><th style="text-align:center;">Líquido</th>'
-      + '<th style="text-align:center;">HE</th><th style="text-align:center;">Ad. Not.</th>'
+      + '<th style="text-align:center;">HE</th><th style="text-align:center;">Hrs. Not.</th>'
       + '</tr></thead><tbody>' + rows + '</tbody></table>'
       + resumoHtml
       + '<div class="docsign">'
@@ -3565,7 +3569,7 @@ function renderBancoHoras() {
             ? '<span style="color:' + (jor.adPerc === 100 ? '#880E4F' : '#E65100') + ';font-weight:700;">'
               + minToStr(heMin) + ' (' + (jor.adPerc > 0 ? jor.adPerc : 50) + '%)</span>'
             : '—';
-          var notStr = jor.adicNot > 0 ? '<span style="color:#4527A0;font-weight:700;">+' + minToStr(Math.round(jor.adicNot)) + '</span>' : '—';
+          var notStr = jor.hrsNot > 0 ? '<span style="color:#4527A0;font-weight:700;">' + minToStr(Math.round(jor.hrsNot)) + '</span>' : '—';
 
           linhas += '<div style="display:grid;grid-template-columns:' + COL + ';gap:4px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;' + rowBg + '">'
             + '<span style="font-weight:500;">' + dt + '</span>'
@@ -3629,7 +3633,7 @@ function renderBancoHoras() {
     var headId = 'banco-head-' + fi;
     var bodyId = 'banco-body-' + fi;
 
-    var colHdrs = ['Data','Obra','Início','Saída Alm.','Ret. Alm.','Término','Abono','Líquido','HE','Ad. Not.','']
+    var colHdrs = ['Data','Obra','Início','Saída Alm.','Ret. Alm.','Término','Abono','Líquido','HE','Hrs. Not.','']
       .map(function(h){ return '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">' + h + '</span>'; }).join('');
 
     html += '<div class="banco-card" style="margin-bottom:10px;">'
@@ -4465,7 +4469,7 @@ function renderResumoColab() {
           ? '<span style="color:' + (jorC.adPerc === 100 ? '#880E4F' : '#E65100') + ';font-weight:700;">'
             + minToStr(heMinC) + ' (' + (jorC.adPerc > 0 ? jorC.adPerc : 50) + '%)</span>'
           : '—';
-        var notStrC = jorC.adicNot > 0 ? '<span style="color:#4527A0;font-weight:700;">+' + minToStr(Math.round(jorC.adicNot)) + '</span>' : '—';
+        var notStrC = jorC.hrsNot > 0 ? '<span style="color:#4527A0;font-weight:700;">' + minToStr(Math.round(jorC.hrsNot)) + '</span>' : '—';
 
         linhasColab += '<div style="display:grid;grid-template-columns:' + COL_BH + ';gap:4px;padding:5px 12px;border-bottom:1px solid var(--cf);font-size:12px;align-items:center;' + rowBgC + '">'
           + '<span style="font-weight:500;">' + dtC + '</span>'
@@ -4526,7 +4530,7 @@ function renderResumoColab() {
     + stBoxC('Resultado Mês',  saldoStrC, saldoClrC)
     + '</div>';
 
-  var colHdrsC = ['Data','Obra','Início','Saída Alm.','Ret. Alm.','Término','Abono','Líquido','HE','Ad. Not.','']
+  var colHdrsC = ['Data','Obra','Início','Saída Alm.','Ret. Alm.','Término','Abono','Líquido','HE','Hrs. Not.','']
     .map(function(h){ return '<span style="font-size:10px;font-weight:700;color:var(--cm);text-transform:uppercase;">' + h + '</span>'; }).join('');
 
   var mesesNomeBH = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
