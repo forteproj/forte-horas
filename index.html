@@ -845,6 +845,7 @@ body{font-family:var(--ds-font);background:var(--cf);color:var(--ct);min-height:
         <select id="f-feriado-abrang" style="flex:0 0 auto;max-width:160px;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:var(--ds-font);font-size:14px;color:var(--ct);outline:none;cursor:pointer;">
           <option value="nacional">Nacional</option>
           <option value="estadual">Estadual</option>
+          <option value="municipal">Municipal</option>
         </select>
         <select id="f-feriado-uf" style="flex:0 0 auto;max-width:100px;display:none;background:white;border:1px solid var(--cb);border-radius:7px;padding:9px 12px;font-family:var(--ds-font);font-size:14px;color:var(--ct);outline:none;cursor:pointer;">
           <option value="">UF</option>
@@ -856,6 +857,7 @@ body{font-family:var(--ds-font);background:var(--cf);color:var(--ct);min-height:
           <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
           <option>SP</option><option>SE</option><option>TO</option>
         </select>
+        <input type="text" id="f-feriado-cidade" placeholder="Município" style="flex:0 0 auto;max-width:180px;display:none;" />
         <input type="text" id="f-feriado-nome" placeholder="Descricao (ex: Natal, Tiradentes...)" />
         <button class="btn-prim" id="btn-add-feriado">+ Adicionar</button>
       </div>
@@ -1574,13 +1576,15 @@ function getAbonosCustom() {
 function getFeriados() { return sget('forte_feriados') || []; }
 function getAdminSenha() { return sget('forte_admin_senha') || 'forte2024'; }
 
-/* Verifica feriado considerando abrangencia e UF da obra */
-function isFeriado(dataStr, ufObra) {
+/* Verifica feriado considerando abrangencia, UF e cidade da obra */
+function isFeriado(dataStr, ufObra, cidadeObra) {
   var f = getFeriados();
   for (var i = 0; i < f.length; i++) {
     if (f[i].data !== dataStr) continue;
     if (f[i].abrang === 'nacional') return true;
     if (f[i].abrang === 'estadual' && ufObra && f[i].uf === ufObra) return true;
+    if (f[i].abrang === 'municipal' && ufObra && f[i].uf === ufObra && f[i].cidade && cidadeObra &&
+        cidadeObra.toLowerCase() === f[i].cidade.toLowerCase()) return true;
   }
   return false;
 }
@@ -1594,9 +1598,9 @@ function minToStr(m) {
 }
 
 /* Tipo do dia */
-function tipoDia(dataStr, ufObra) {
+function tipoDia(dataStr, ufObra, cidadeObra) {
   if (!dataStr) return 'normal';
-  if (isFeriado(dataStr, ufObra)) return 'feriado';
+  if (isFeriado(dataStr, ufObra, cidadeObra || '')) return 'feriado';
   var dow = new Date(dataStr + 'T12:00').getDay();
   if (dow === 0) return 'domingo';
   if (dow === 6) return 'sabado';
@@ -1737,7 +1741,7 @@ function calcBancoHorasMensal(funcNome, mes, ano) {
       var ab      = f.abono || 'Trabalhou';
       var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
       var uf      = obraObj ? (obraObj.uf || '') : '';
-      var tipo    = tipoDia(r.data, uf);
+      var tipo    = tipoDia(r.data, uf, obraObj ? (obraObj.cidade || '') : '');
 
       if (tipo === 'normal') {
         if (ab === 'Trabalhou') {
@@ -2614,7 +2618,7 @@ function renderHist() {
     // Calcula jornada de todos que trabalharam
     var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
     var ufObra  = obraObj ? (obraObj.uf || '') : '';
-    var tipo = tipoDia(r.data, ufObra);
+    var tipo = tipoDia(r.data, ufObra, obraObj ? (obraObj.cidade || '') : '');
     var diaClasse = { normal: 'dia-normal', sabado: 'dia-sabado', domingo: 'dia-domingo', feriado: 'dia-feriado' }[tipo] || 'dia-normal';
     var diaNome   = { normal: 'Dia Normal', sabado: 'Sabado +50%', domingo: 'Domingo +100%', feriado: 'Feriado +100%' }[tipo] || 'Normal';
 
@@ -2791,7 +2795,7 @@ function imprimir(id) {
   var dt   = r.data ? new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) : '-';
   var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
   var ufObra  = obraObj ? (obraObj.uf || '') : '';
-  var tipo = tipoDia(r.data, ufObra);
+  var tipo = tipoDia(r.data, ufObra, obraObj ? (obraObj.cidade || '') : '');
   var diaNome = { normal: 'Dia Normal', sabado: 'Sabado (+50%)', domingo: 'Domingo (+100%)', feriado: 'Feriado (+100%)' }[tipo] || 'Normal';
   var rows = '';
   var totLiq = 0, totExtra = 0, totAdic = 0, qtdTrab = 0;
@@ -3024,7 +3028,7 @@ function exportarCSV() {
   regs.forEach(function(r) {
     var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
     var ufObra  = obraObj ? (obraObj.uf || '') : '';
-    var tipo = tipoDia(r.data, ufObra);
+    var tipo = tipoDia(r.data, ufObra, obraObj ? (obraObj.cidade || '') : '');
     var diaNome = { normal: 'Normal', sabado: 'Sabado', domingo: 'Domingo', feriado: 'Feriado' }[tipo] || 'Normal';
     r.funcionarios.forEach(function(f) {
       var ab = f.abono || 'Trabalhou';
@@ -3276,7 +3280,7 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
           var ab = f.abono || 'Trabalhou';
           var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
           var uf   = obraObj ? (obraObj.uf||'') : '';
-          var tipo = tipoDia(dStr, uf);
+          var tipo = tipoDia(dStr, uf, obraObj ? (obraObj.cidade||'') : '');
           var rowBg = tipo === 'sabado'   ? 'background:#FFF3E0;'
                     : tipo === 'domingo'  ? 'background:#FCE4EC;'
                     : tipo === 'feriado'  ? 'background:#EDE7F6;'
@@ -3525,7 +3529,7 @@ function renderBancoHoras() {
           var ab = f.abono || 'Trabalhou';
           var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
           var uf   = obraObj ? (obraObj.uf||'') : '';
-          var tipo = tipoDia(dStr, uf);
+          var tipo = tipoDia(dStr, uf, obraObj ? (obraObj.cidade||'') : '');
 
           var rowBg = tipo === 'sabado'   ? 'background:#FFF3E0;'
                     : tipo === 'domingo'  ? 'background:#FCE4EC;'
@@ -3773,7 +3777,9 @@ document.getElementById('btn-salvar-senha-admin').addEventListener('click', func
 
 /* FERIADOS */
 document.getElementById('f-feriado-abrang').addEventListener('change', function() {
-  document.getElementById('f-feriado-uf').style.display = this.value === 'estadual' ? 'block' : 'none';
+  var v = this.value;
+  document.getElementById('f-feriado-uf').style.display     = (v === 'estadual' || v === 'municipal') ? 'block' : 'none';
+  document.getElementById('f-feriado-cidade').style.display = v === 'municipal' ? 'block' : 'none';
 });
 
 document.getElementById('btn-add-feriado').addEventListener('click', function() {
@@ -3781,15 +3787,21 @@ document.getElementById('btn-add-feriado').addEventListener('click', function() 
   var nome   = document.getElementById('f-feriado-nome').value.trim();
   var abrang = document.getElementById('f-feriado-abrang').value;
   var uf     = document.getElementById('f-feriado-uf').value;
+  var cidade = document.getElementById('f-feriado-cidade').value.trim();
   if (!data)  { toast('Selecione uma data!', 'err'); return; }
   if (abrang === 'estadual' && !uf) { toast('Selecione o estado!', 'err'); return; }
+  if (abrang === 'municipal' && !uf) { toast('Selecione o estado!', 'err'); return; }
+  if (abrang === 'municipal' && !cidade) { toast('Informe o municipio!', 'err'); return; }
   var lista = getFeriados();
   for (var i = 0; i < lista.length; i++) {
-    if (lista[i].data === data && lista[i].abrang === abrang && (abrang === 'nacional' || lista[i].uf === uf)) {
-      toast('Feriado ja cadastrado para essa data/UF!', 'err'); return;
+    var fi = lista[i];
+    if (fi.data === data && fi.abrang === abrang) {
+      if (abrang === 'nacional') { toast('Feriado ja cadastrado para essa data!', 'err'); return; }
+      if (abrang === 'estadual' && fi.uf === uf) { toast('Feriado ja cadastrado para essa data/UF!', 'err'); return; }
+      if (abrang === 'municipal' && fi.uf === uf && (fi.cidade||'').toLowerCase() === cidade.toLowerCase()) { toast('Feriado ja cadastrado para esse municipio!', 'err'); return; }
     }
   }
-  lista.push({ data: data, nome: nome || 'Feriado', abrang: abrang, uf: abrang === 'estadual' ? uf : '' });
+  lista.push({ data: data, nome: nome || 'Feriado', abrang: abrang, uf: abrang !== 'nacional' ? uf : '', cidade: abrang === 'municipal' ? cidade : '' });
   lista.sort(function(a, b) { return a.data > b.data ? 1 : -1; });
   sset('forte_feriados', lista);
   document.getElementById('f-feriado-data').value = '';
@@ -3797,6 +3809,8 @@ document.getElementById('btn-add-feriado').addEventListener('click', function() 
   document.getElementById('f-feriado-abrang').value = 'nacional';
   document.getElementById('f-feriado-uf').value = '';
   document.getElementById('f-feriado-uf').style.display = 'none';
+  document.getElementById('f-feriado-cidade').value = '';
+  document.getElementById('f-feriado-cidade').style.display = 'none';
   renderFeriados();
   toast('Feriado adicionado!', 'ok');
 });
@@ -3814,11 +3828,13 @@ function renderFeriados() {
     var abrang = f.abrang || 'nacional';
     var badge  = abrang === 'estadual'
       ? '<span class="status-pill" style="background:#EDE7F6;color:#4A148C;border:none;">' + (f.uf || '?') + '</span>'
+      : abrang === 'municipal'
+      ? '<span class="status-pill" style="background:#E8F5E9;color:#1B5E20;border:none;">' + (f.cidade || '?') + '/' + (f.uf || '?') + '</span>'
       : '<span class="status-pill" style="background:#E8F2FB;color:#0D47A1;border:none;">Nacional</span>';
     html += '<div class="cad-item">'
       + '<div class="cad-info"><div class="cad-nome">' + f.nome + '</div><div class="cad-sub">' + dtFmt + '</div></div>'
       + badge
-      + '<div class="cad-actions"><button class="btn-del" data-del-feriado="' + f.data + '__' + abrang + '__' + (f.uf||'') + '">X</button></div>'
+      + '<div class="cad-actions"><button class="btn-del" data-del-feriado="' + f.data + '__' + abrang + '__' + (f.uf||'') + '__' + (f.cidade||'') + '">X</button></div>'
       + '</div>';
   });
   el.innerHTML = html;
@@ -3828,10 +3844,12 @@ document.getElementById('lista-feriados').addEventListener('click', function(e) 
   var dl = e.target.closest('[data-del-feriado]');
   if (!dl) return;
   var parts  = dl.dataset.delFeriado.split('__');
-  var data   = parts[0], abrang = parts[1], uf = parts[2] || '';
+  var data   = parts[0], abrang = parts[1], uf = parts[2] || '', cidade = parts[3] || '';
   confirmar('Remover este feriado?', function() {
     sset('forte_feriados', getFeriados().filter(function(f) {
-      return !(f.data === data && (f.abrang || 'nacional') === abrang && (f.uf || '') === uf);
+      if (f.data !== data || (f.abrang || 'nacional') !== abrang) return true;
+      if (abrang === 'municipal') return !((f.uf||'') === uf && (f.cidade||'').toLowerCase() === cidade.toLowerCase());
+      return !((f.uf || '') === uf);
     }));
     renderFeriados();
     toast('Feriado removido.', 'ok');
@@ -4421,7 +4439,7 @@ function renderResumoColab() {
         var ab = f.abono || 'Trabalhou';
         var obraObj = getObras().find(function(o){ return String(o.id) === String(r.obraId); });
         var uf   = obraObj ? (obraObj.uf||'') : '';
-        var tipo = tipoDia(dStrC, uf);
+        var tipo = tipoDia(dStrC, uf, obraObj ? (obraObj.cidade||'') : '');
 
         var rowBgC = tipo === 'sabado'  ? 'background:#FFF3E0;'
                    : tipo === 'domingo' ? 'background:#FCE4EC;'
