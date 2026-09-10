@@ -3472,7 +3472,7 @@ function renderBancoHoras() {
   var COL = '100px 1fr 52px 62px 62px 52px 76px 62px 76px 66px 30px';
 
   var isAdm = sessao && (sessao.tipo === 'admin' || sessao.tipo === 'sup');
-  function editBtn(regId, encId) {
+  function editBtn(regId, encId, funcNome) {
     if (!isAdm) return '<span></span>';
     var canEdit = sessao.tipo === 'admin' || encId === sessao.id;
     if (!canEdit) return '<span></span>';
@@ -3480,9 +3480,9 @@ function renderBancoHoras() {
       + '<button class="btn-banco-edit-reg" data-regid="' + regId + '" '
       + 'style="background:none;border:1px solid var(--cb);border-radius:4px;cursor:pointer;font-size:11px;padding:2px 5px;color:var(--cm);" '
       + 'title="Editar registro">✏</button>'
-      + '<button class="btn-banco-del-reg" data-regid="' + regId + '" '
+      + '<button class="btn-banco-del-reg" data-regid="' + regId + '" data-func="' + String(funcNome || '').replace(/"/g,'&quot;') + '" '
       + 'style="background:none;border:1px solid #c0392b;border-radius:4px;cursor:pointer;font-size:11px;padding:2px 5px;color:#c0392b;" '
-      + 'title="Excluir registro">✕</button>'
+      + 'title="Excluir apontamento deste funcionário neste dia">✕</button>'
       + '</span>';
   }
   function abonarBtn(dStr, fNome) {
@@ -3551,7 +3551,7 @@ function renderBancoHoras() {
               + '<span><span class="badge b-abono" style="font-size:10px;">' + ab + '</span></span>'
               + liqAbono
               + '<span style="color:var(--cm);">—</span><span style="color:var(--cm);">—</span>'
-              + '<span>' + editBtn(r.id, r.encId) + '</span></div>';
+              + '<span>' + editBtn(r.id, r.encId, f.nome) + '</span></div>';
             return;
           }
 
@@ -3586,7 +3586,7 @@ function renderBancoHoras() {
             + '<span style="font-weight:600;">' + minToStr(jor.liquido) + '</span>'
             + '<span>' + heStr + '</span>'
             + '<span>' + notStr + '</span>'
-            + '<span>' + editBtn(r.id, r.encId) + '</span>'
+            + '<span>' + editBtn(r.id, r.encId, f.nome) + '</span>'
             + '</div>';
         });
       } else if (isFds) {
@@ -3689,11 +3689,20 @@ function renderBancoHoras() {
   document.querySelectorAll('#banco-lista .btn-banco-del-reg').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      var rid = btn.dataset.regid;
-      confirmar('Excluir este apontamento? Esta acao nao pode ser desfeita.', function() {
-        sset('forte_regs', getRegs().filter(function(r) { return String(r.id) !== String(rid); }));
+      var rid   = btn.dataset.regid;
+      var fnome = btn.dataset.func || '';
+      confirmar('Excluir o apontamento de ' + fnome + ' neste dia? Os demais colaboradores da equipe não são afetados. Esta ação não pode ser desfeita.', function() {
+        var out = [];
+        getRegs().forEach(function(r) {
+          if (String(r.id) !== String(rid)) { out.push(r); return; }
+          var restantes = (r.funcionarios || []).filter(function(f) { return f.nome !== fnome; });
+          // Só descarta o registro inteiro se ninguém mais restou nele
+          if (restantes.length) out.push(Object.assign({}, r, { funcionarios: restantes }));
+        });
+        sset('forte_regs', out);
         renderBancoHoras();
-        toast('Registro excluido.', 'ok');
+        if (typeof renderHist === 'function') renderHist();
+        toast('Apontamento de ' + fnome + ' excluído.', 'ok');
       });
     });
   });
