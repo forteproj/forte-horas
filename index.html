@@ -191,6 +191,8 @@ body{font-family:var(--ds-font);background:var(--cf);color:var(--ct);min-height:
 .btn-edit:hover{background:#FDE8B5;}
 .btn-del{background:var(--vm-c);border:1px solid #F0C5C3;border-radius:6px;padding:5px 12px;font-family:var(--ds-font);font-size:12px;font-weight:600;color:var(--vm);cursor:pointer;}
 .btn-del:hover{background:#F9D4D2;}
+.btn-del-func{background:none;border:1px solid #F0C5C3;border-radius:4px;width:22px;height:22px;line-height:1;font-size:13px;font-weight:700;color:var(--vm);cursor:pointer;}
+.btn-del-func:hover{background:var(--vm-c);}
 .btn-print{background:var(--cf);border:1px solid var(--cb);border-radius:6px;padding:6px 12px;font-family:var(--ds-font);font-size:12px;font-weight:600;color:var(--cm);cursor:pointer;}
 .btn-print:hover{border-color:var(--ct);color:var(--ct);}
 /* CADASTRO */
@@ -2601,6 +2603,7 @@ function renderHist() {
 
   var html = '';
   regs.forEach(function(r) {
+    var canDel = sessao.tipo === 'admin' || r.encId === sessao.id;
     var dt = r.data ? new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
     var temAbono = r.abonoEq || r.funcionarios.some(function(f) { return f.abono && f.abono !== 'Trabalhou'; });
     var todoAbono = r.abonoEq || r.funcionarios.every(function(f) { return f.abono && f.abono !== 'Trabalhou'; });
@@ -2625,18 +2628,26 @@ function renderHist() {
     // Totais do dia
     var totLiq = 0, totExtra = 0, totAdic = 0, qtdTrab = 0;
     var fRows = '';
+    // Excluir um funcionario individualmente, sem apagar o registro da equipe
+    // inteira (o botao "Excluir" do card apaga tudo -- esse so remove a linha).
+    function delFuncCell(f) {
+      if (!canDel) return '<td></td>';
+      var safeName = String(f.nome).replace(/"/g, '&quot;');
+      return '<td><button class="btn-del-func" data-delfunc="' + r.id + '__' + safeName + '" title="Excluir apontamento de ' + safeName + ' neste dia (so esse funcionario)">&times;</button></td>';
+    }
     r.funcionarios.forEach(function(f) {
       var ab = f.abono || 'Trabalhou';
       if (ab !== 'Trabalhou') {
         fRows += '<tr><td>' + f.nome + '</td>'
-          + '<td class="dim">-</td><td class="dim">-</td><td class="dim">-</td><td class="dim">-</td><td class="dim">-</td>'
-          + '<td><span class="ab-tag ' + abClass(ab) + '">' + ab + '</span></td></tr>';
+          + '<td class="dim">-</td><td class="dim">-</td><td class="dim">-</td><td class="dim">-</td>'
+          + '<td><span class="ab-tag ' + abClass(ab) + '">' + ab + '</span></td>'
+          + delFuncCell(f) + '</tr>';
         return;
       }
       var temRef = f.refeicao !== undefined ? f.refeicao : true;
       var jor = calcJornada(f.entrada, f.saida, r.data, temRef, ufObra, getFuncAdicNot(f.nome));
       if (!jor) {
-        fRows += '<tr><td>' + f.nome + '</td><td colspan="6" class="dim">-</td></tr>';
+        fRows += '<tr><td>' + f.nome + '</td><td colspan="5" class="dim">-</td>' + delFuncCell(f) + '</tr>';
         return;
       }
       qtdTrab++;
@@ -2675,7 +2686,7 @@ function renderHist() {
         + '<td><span class="h-pill">' + minToStr(jor.liquido) + '</span>' + notTag + '</td>'
         + '<td>' + refCell + '</td>'
         + '<td>' + heCell + '</td>'
-        + '</tr>';
+        + delFuncCell(f) + '</tr>';
     });
 
     // Strip de tipo do dia
@@ -2708,7 +2719,6 @@ function renderHist() {
 
     var strip = r.abonoEq ? '<div class="abono-strip">Abono de Equipe: ' + r.abonoMotivo + '</div>' : diaStrip;
     var obsH  = r.obs ? '<div class="reg-obs"><strong>Obs:</strong> ' + r.obs + '</div>' : '';
-    var canDel = sessao.tipo === 'admin' || r.encId === sessao.id;
     html += '<div class="reg-card">'
       + '<div class="reg-head" data-regid="' + r.id + '">'
       + '<div class="reg-hl"><div class="reg-dl">' + dt + ' - ' + r.local + '</div>'
@@ -2717,7 +2727,7 @@ function renderHist() {
       + '</div>'
       + '<div class="reg-body" id="body-' + r.id + '">'
       + strip
-      + '<div class="ftbl-wrap"><table class="ftbl"><thead><tr><th>Funcionario</th><th>Entrada</th><th>Saida</th><th>Liquido</th><th>Intervalo</th><th>HE</th></tr></thead>'
+      + '<div class="ftbl-wrap"><table class="ftbl"><thead><tr><th>Funcionario</th><th>Entrada</th><th>Saida</th><th>Liquido</th><th>Intervalo</th><th>HE</th><th></th></tr></thead>'
       + '<tbody>' + fRows + '</tbody></table></div>'
       + sumHtml
       + obsH
@@ -2742,7 +2752,7 @@ function renderHist() {
       + '<div class="reg-actions">'
       + '<button class="btn-print" data-print="' + r.id + '">Imprimir</button>'
       + '<button class="btn-edit" data-editreg="' + r.id + '">Editar</button>'
-      + (canDel ? '<button class="btn-del" data-delreg="' + r.id + '">Excluir</button>' : '')
+      + (canDel ? '<button class="btn-del" data-delreg="' + r.id + '" title="Apaga o registro da equipe inteira nesse dia">Excluir equipe</button>' : '')
       + '</div></div></div>';
   });
   lista.innerHTML = html;
@@ -2779,10 +2789,29 @@ document.getElementById('lista-reg').addEventListener('click', function(e) {
   var dr = e.target.closest('[data-delreg]');
   if (dr) {
     var rid = dr.dataset.delreg;
-    confirmar('Excluir este apontamento? Esta acao nao pode ser desfeita.', function() {
+    confirmar('Excluir este apontamento? Isso remove TODA a equipe lançada nesse dia/obra. Esta acao nao pode ser desfeita.', function() {
       sset('forte_regs', getRegs().filter(function(r) { return String(r.id) !== String(rid); }));
       renderHist();
       toast('Registro excluido.', 'ok');
+    });
+  }
+  // Excluir UM funcionario da equipe do dia, sem afetar os demais
+  var df = e.target.closest('[data-delfunc]');
+  if (df) {
+    var raw  = df.dataset.delfunc;
+    var sep  = raw.indexOf('__');
+    var rid3 = raw.slice(0, sep);
+    var fnome3 = raw.slice(sep + 2);
+    confirmar('Excluir o apontamento de ' + fnome3 + ' neste dia? Os demais colaboradores da equipe não são afetados. Esta ação não pode ser desfeita.', function() {
+      var out = [];
+      getRegs().forEach(function(r) {
+        if (String(r.id) !== String(rid3)) { out.push(r); return; }
+        var restantes = (r.funcionarios || []).filter(function(f) { return f.nome !== fnome3; });
+        if (restantes.length) out.push(Object.assign({}, r, { funcionarios: restantes }));
+      });
+      sset('forte_regs', out);
+      renderHist();
+      toast('Apontamento de ' + fnome3 + ' excluído.', 'ok');
     });
   }
 });
