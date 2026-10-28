@@ -1583,14 +1583,19 @@ function sset(k, v) { window._sset(k, v); }
 function mutarRegs(mutatorFn) { return window._mutarRegs(mutatorFn); }
 // Mensagem de erro adequada ao tipo de falha ao salvar um apontamento
 function msgErroSalvar(e) {
-  var cod = e && e.code;
+  var cod = (e && e.code) || '';
+  var msg = (e && e.message) || '';
   if (cod === 'unavailable' || cod === 'deadline-exceeded') {
     return 'Sem conexão com o servidor. Verifique o sinal/internet e tente salvar de novo.';
   }
   if (cod === 'permission-denied') {
     return 'Sem permissão pra salvar. Avise o administrador.';
   }
-  return 'Erro ao salvar. Tente novamente.';
+  if (cod === 'invalid-argument' || /longer than|exceeds the maximum|too large/i.test(msg)) {
+    return 'A base de apontamentos ficou grande demais pro Firestore aceitar (limite de 1MB por documento). Avise o suporte — precisa reestruturar o armazenamento.';
+  }
+  // Código não mapeado — mostra ele mesmo pra facilitar diagnosticar
+  return 'Erro ao salvar (código: ' + (cod || 'desconhecido') + '). Avise o suporte com essa mensagem.';
 }
 function getObras() { return sget('forte_obras') || []; }
 function getFuncs() { return (sget('forte_funcs') || []).concat(FUNCS_RDO); }
