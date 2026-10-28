@@ -1416,7 +1416,7 @@ body{font-family:var(--ds-font);background:var(--cf);color:var(--ct);min-height:
 <script type="module">
 // ─── FIREBASE CONFIG ────────────────────────────────────────────────────────
 import { initializeApp }                          from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs, runTransaction }
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, getDocs, writeBatch }
                                                   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -1446,7 +1446,10 @@ const dbRdo = getFirestore(fbRdo);
 // ─── CACHE LOCAL (espelha o que estava no localStorage) ──────────────────────
 const CACHE = {};
 var FUNCS_RDO = []; // funcionários compartilhados do forte-rdo
-const CHAVES = ['forte_obras','forte_funcs','forte_encs','forte_regs',
+// forte_regs NÃO entra aqui — desde a migração pra coleção (ver mais abaixo),
+// cada apontamento é um documento próprio em vez de um blob único (que estourou
+// o limite de 1MB do Firestore depois de meses de uso). Carregado à parte.
+const CHAVES = ['forte_obras','forte_funcs','forte_encs',
                 'forte_veiculos','forte_colabs','forte_abonos',
                 'forte_feriados','forte_admin_senha',
                 'forte_org_teams','forte_org_mestre'];
@@ -1472,35 +1475,13 @@ function _sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
 // repetir não resolve, só atrasa o aviso de erro pro usuário.
 var ERROS_RETRYAVEIS = ['unavailable', 'deadline-exceeded', 'aborted', 'cancelled', 'internal', 'unknown'];
 
-// Grava forte_regs de forma segura contra escrita concorrente.
-// Problema que isso resolve: "_sset" normal le o CACHE local (que fica
-// desatualizado assim que outro encarregado salva um apontamento enquanto essa
-// aba ja estava aberta) e regrava o array inteiro por cima — quem salvar por
-// ultimo apaga silenciosamente o apontamento de quem salvou antes. Essa funcao
-// roda numa transacao do Firestore: le o estado mais recente DO SERVIDOR (nao
-// do cache), aplica a mutacao recebida e grava tudo atomicamente; se outra
-// transacao concorrente mexeu no documento nesse meio tempo, o Firestore repete
-// a transacao automaticamente com os dados atualizados em vez de perder dado.
-//
-// Diferente do _sset antigo, a transacao PRECISA de conexao ativa com o
-// servidor na hora de salvar (nao da pra gravar "otimisticamente" offline como
-// antes) — em campo com sinal fraco isso pode falhar na primeira tentativa, por
-// isso tenta de novo algumas vezes antes de avisar erro pro usuario.
-window._mutarRegs = async function(mutatorFn) {
-  var ref = doc(db, 'dados', 'regs');
+// Tenta de novo (em quedas passageiras de conexão) antes de desistir.
+async function _comRetry(fn) {
   var tentativas = 3;
   var ultimoErro = null;
   for (var i = 0; i < tentativas; i++) {
     try {
-      var novo = await runTransaction(db, async function(tx) {
-        var snap  = await tx.get(ref);
-        var atual = snap.exists() ? JSON.parse(snap.data().valor) : [];
-        var resultado = mutatorFn(atual);
-        tx.set(ref, { valor: JSON.stringify(resultado) });
-        return resultado;
-      });
-      CACHE['forte_regs'] = novo;
-      return novo;
+      return await fn();
     } catch (e) {
       ultimoErro = e;
       var podeRetry = ERROS_RETRYAVEIS.indexOf(e && e.code) >= 0;
@@ -1509,7 +1490,74 @@ window._mutarRegs = async function(mutatorFn) {
     }
   }
   throw ultimoErro;
+}
+
+// ── Apontamentos: 1 documento por registro na coleção "regs" ────────────────
+// Antes, TODOS os apontamentos desde sempre ficavam num único documento
+// (dados/regs) como um array JSON — crescia pra sempre e acabou estourando o
+// limite de 1MB do Firestore, travando QUALQUER salvamento novo. Agora cada
+// apontamento é seu próprio documento: nunca esbarra em limite de tamanho, e
+// dois encarregados salvando apontamentos DIFERENTES nunca mais colidem entre
+// si (só colidiriam editando o MESMO apontamento ao mesmo tempo — bem raro).
+window._criarReg = function(reg) {
+  return _comRetry(function(){ return setDoc(doc(db, 'regs', String(reg.id)), reg); })
+    .then(function(){
+      var arr = (CACHE['forte_regs'] || []).filter(function(r){ return String(r.id) !== String(reg.id); });
+      arr.unshift(reg);
+      CACHE['forte_regs'] = arr;
+      return reg;
+    });
 };
+window._atualizarReg = function(regId, novoReg) {
+  return _comRetry(function(){ return setDoc(doc(db, 'regs', String(regId)), novoReg); })
+    .then(function(){
+      CACHE['forte_regs'] = (CACHE['forte_regs'] || []).map(function(r){
+        return String(r.id) === String(regId) ? novoReg : r;
+      });
+      return novoReg;
+    });
+};
+window._excluirReg = function(regId) {
+  return _comRetry(function(){ return deleteDoc(doc(db, 'regs', String(regId))); })
+    .then(function(){
+      CACHE['forte_regs'] = (CACHE['forte_regs'] || []).filter(function(r){ return String(r.id) !== String(regId); });
+    });
+};
+
+// Migração automática e idempotente: se a coleção "regs" ainda estiver vazia
+// mas existir o blob antigo em dados/regs, move cada item do array pra virar
+// seu próprio documento. Roda 1x só (na prática) — se a coleção já tem
+// documentos, não faz nada; seguro de rodar em todo load.
+async function migrarRegsParaColecaoSeNecessario() {
+  try {
+    var colSnap = await getDocs(collection(db, 'regs'));
+    if (!colSnap.empty) return;
+    var antigoSnap = await getDoc(doc(db, 'dados', 'regs'));
+    if (!antigoSnap.exists()) return;
+    var antigos = JSON.parse(antigoSnap.data().valor || '[]');
+    if (!antigos.length) return;
+    var batch = writeBatch(db);
+    var count = 0;
+    for (var i = 0; i < antigos.length; i++) {
+      var r = antigos[i];
+      if (!r || r.id === undefined || r.id === null) continue;
+      batch.set(doc(db, 'regs', String(r.id)), r);
+      count++;
+      if (count % 450 === 0) { await batch.commit(); batch = writeBatch(db); }
+    }
+    await batch.commit();
+    console.log('Migração de apontamentos concluída:', antigos.length, 'registros movidos pra coleção "regs".');
+  } catch (e) {
+    console.error('Erro na migração de apontamentos para a coleção "regs":', e);
+  }
+}
+
+async function carregarRegsDaColecao() {
+  var snap = await getDocs(collection(db, 'regs'));
+  var arr = [];
+  snap.forEach(function(d) { arr.push(d.data()); });
+  CACHE['forte_regs'] = arr;
+}
 
 // Carrega funcionários compartilhados do forte-rdo
 async function loadFuncsShared() {
@@ -1545,15 +1593,20 @@ async function carregarTudo() {
       CACHE[k] = null;
     }
   }
+  await migrarRegsParaColecaoSeNecessario();
+  await carregarRegsDaColecao();
   await loadFuncsShared();
 }
 
 // Listener em tempo real para registros (encarregado salva → admin vê na hora)
+// Agora escuta a COLEÇÃO inteira (1 doc por apontamento), não mais um único
+// documento — qualquer criação/edição/exclusão de qualquer apontamento atualiza
+// o cache local automaticamente.
 function ativarListenerRegs() {
-  onSnapshot(doc(db, 'dados', 'regs'), function(snap) {
-    if (snap.exists()) {
-      CACHE['forte_regs'] = JSON.parse(snap.data().valor);
-    }
+  onSnapshot(collection(db, 'regs'), function(snap) {
+    var arr = [];
+    snap.forEach(function(d) { arr.push(d.data()); });
+    CACHE['forte_regs'] = arr;
   });
 }
 
@@ -1578,9 +1631,10 @@ function iniciarSistema() {
 /* STORAGE — agora usa cache Firebase */
 function sget(k) { return window._sget(k); }
 function sset(k, v) { window._sset(k, v); }
-// Grava forte_regs com seguranca contra escrita concorrente (ver window._mutarRegs).
-// mutatorFn recebe o array mais recente vindo do servidor e deve retornar o novo array.
-function mutarRegs(mutatorFn) { return window._mutarRegs(mutatorFn); }
+// Apontamentos: 1 documento por registro na coleção "regs" (ver window._criarReg etc.)
+function criarReg(reg)            { return window._criarReg(reg); }
+function atualizarReg(id, novo)   { return window._atualizarReg(id, novo); }
+function excluirReg(id)           { return window._excluirReg(id); }
 // Mensagem de erro adequada ao tipo de falha ao salvar um apontamento
 function msgErroSalvar(e) {
   var cod = (e && e.code) || '';
@@ -2479,10 +2533,7 @@ document.getElementById('btn-salvar').addEventListener('click', function() {
 
   var btnSalvar = document.getElementById('btn-salvar');
   btnSalvar.disabled = true;
-  mutarRegs(function(regsAtuais) {
-    regsAtuais.unshift(reg);
-    return regsAtuais;
-  }).then(function() {
+  criarReg(reg).then(function() {
     toast('Apontamento salvo!', 'ok');
     iniciarForm();
   }).catch(function(e) {
@@ -2847,31 +2898,24 @@ document.getElementById('lista-reg').addEventListener('click', function(e) {
   if (rj) {
     var parts = rj.dataset.resolveraj.split('__');
     var rid2 = parts[0], idx2 = Number(parts[1]);
-    mutarRegs(function(regsAtuais) {
-      for (var ri = 0; ri < regsAtuais.length; ri++) {
-        if (String(regsAtuais[ri].id) === String(rid2)) {
-          if (regsAtuais[ri].ajustes && regsAtuais[ri].ajustes[idx2]) {
-            regsAtuais[ri].ajustes[idx2].status = 'resolvido';
-          }
-          break;
-        }
-      }
-      return regsAtuais;
-    }).then(function() {
-      renderHist();
-      toast('Ajuste marcado como resolvido.', 'ok');
-    }).catch(function(e) {
-      console.error('Erro ao resolver ajuste:', e);
-      toast(msgErroSalvar(e), 'err');
-    });
+    var regAj = getRegs().filter(function(r) { return String(r.id) === String(rid2); })[0];
+    if (regAj) {
+      var novoRegAj = JSON.parse(JSON.stringify(regAj));
+      if (novoRegAj.ajustes && novoRegAj.ajustes[idx2]) novoRegAj.ajustes[idx2].status = 'resolvido';
+      atualizarReg(rid2, novoRegAj).then(function() {
+        renderHist();
+        toast('Ajuste marcado como resolvido.', 'ok');
+      }).catch(function(e) {
+        console.error('Erro ao resolver ajuste:', e);
+        toast(msgErroSalvar(e), 'err');
+      });
+    }
   }
   var dr = e.target.closest('[data-delreg]');
   if (dr) {
     var rid = dr.dataset.delreg;
     confirmar('Excluir este apontamento? Isso remove TODA a equipe lançada nesse dia/obra. Esta acao nao pode ser desfeita.', function() {
-      mutarRegs(function(regsAtuais) {
-        return regsAtuais.filter(function(r) { return String(r.id) !== String(rid); });
-      }).then(function() {
+      excluirReg(rid).then(function() {
         renderHist();
         toast('Registro excluido.', 'ok');
       }).catch(function(e) {
@@ -2888,15 +2932,13 @@ document.getElementById('lista-reg').addEventListener('click', function(e) {
     var rid3 = raw.slice(0, sep);
     var fnome3 = raw.slice(sep + 2);
     confirmar('Excluir o apontamento de ' + fnome3 + ' neste dia? Os demais colaboradores da equipe não são afetados. Esta ação não pode ser desfeita.', function() {
-      mutarRegs(function(regsAtuais) {
-        var out = [];
-        regsAtuais.forEach(function(r) {
-          if (String(r.id) !== String(rid3)) { out.push(r); return; }
-          var restantes = (r.funcionarios || []).filter(function(f) { return f.nome !== fnome3; });
-          if (restantes.length) out.push(Object.assign({}, r, { funcionarios: restantes }));
-        });
-        return out;
-      }).then(function() {
+      var regDf = getRegs().filter(function(r) { return String(r.id) === String(rid3); })[0];
+      if (!regDf) return;
+      var restantesDf = (regDf.funcionarios || []).filter(function(f) { return f.nome !== fnome3; });
+      var opDf = restantesDf.length
+        ? atualizarReg(rid3, Object.assign({}, regDf, { funcionarios: restantesDf }))
+        : excluirReg(rid3);
+      opDf.then(function() {
         renderHist();
         toast('Apontamento de ' + fnome3 + ' excluído.', 'ok');
       }).catch(function(e) {
@@ -3309,19 +3351,14 @@ document.getElementById('btn-salvar-edit-reg').addEventListener('click', functio
   if (semFunc)       { toast('Selecione todos os funcionarios!', 'err'); return; }
   if (!funcs.length) { toast('Adicione ao menos um funcionario!', 'err'); return; }
 
-  mutarRegs(function(regsAtuais) {
-    for (var j = 0; j < regsAtuais.length; j++) {
-      if (String(regsAtuais[j].id) === String(idVal)) {
-        regsAtuais[j] = Object.assign({}, regsAtuais[j], {
-          data: data, placa: placa, obraId: obraId, local: local, obs: obs,
-          abonoEq: abonoEq, abonoMotivo: abonoEq ? abonoMot : null,
-          funcionarios: funcs
-        });
-        break;
-      }
-    }
-    return regsAtuais;
-  }).then(function() {
+  var regEd = getRegs().filter(function(r) { return String(r.id) === String(idVal); })[0];
+  if (!regEd) return;
+  var novoRegEd = Object.assign({}, regEd, {
+    data: data, placa: placa, obraId: obraId, local: local, obs: obs,
+    abonoEq: abonoEq, abonoMotivo: abonoEq ? abonoMot : null,
+    funcionarios: funcs
+  });
+  atualizarReg(idVal, novoRegEd).then(function() {
     fecharModal('modal-edit-reg');
     renderHist();
     if (document.getElementById('view-banco').classList.contains('active')) renderBancoHoras();
@@ -3817,16 +3854,14 @@ function renderBancoHoras() {
       var rid   = btn.dataset.regid;
       var fnome = btn.dataset.func || '';
       confirmar('Excluir o apontamento de ' + fnome + ' neste dia? Os demais colaboradores da equipe não são afetados. Esta ação não pode ser desfeita.', function() {
-        mutarRegs(function(regsAtuais) {
-          var out = [];
-          regsAtuais.forEach(function(r) {
-            if (String(r.id) !== String(rid)) { out.push(r); return; }
-            var restantes = (r.funcionarios || []).filter(function(f) { return f.nome !== fnome; });
-            // Só descarta o registro inteiro se ninguém mais restou nele
-            if (restantes.length) out.push(Object.assign({}, r, { funcionarios: restantes }));
-          });
-          return out;
-        }).then(function() {
+        var regBd = getRegs().filter(function(r) { return String(r.id) === String(rid); })[0];
+        if (!regBd) return;
+        var restantesBd = (regBd.funcionarios || []).filter(function(f) { return f.nome !== fnome; });
+        // Só descarta o registro inteiro se ninguém mais restou nele
+        var opBd = restantesBd.length
+          ? atualizarReg(rid, Object.assign({}, regBd, { funcionarios: restantesBd }))
+          : excluirReg(rid);
+        opBd.then(function() {
           renderBancoHoras();
           if (typeof renderHist === 'function') renderHist();
           toast('Apontamento de ' + fnome + ' excluído.', 'ok');
@@ -3886,15 +3921,13 @@ document.getElementById('btn-salvar-banco-abono').addEventListener('click', func
   if (!abono)  { toast('Selecione o tipo de abono!', 'err'); return; }
   var obra  = getObras().find(function(o){ return String(o.id) === String(obraId); });
   var local = obra ? obra.nome + (obra.cidade && obra.cidade !== obra.nome ? ' - ' + obra.cidade : '') : '';
-  mutarRegs(function(regsAtuais) {
-    regsAtuais.push({
-      id: Date.now(), data: data, obraId: Number(obraId), local: local,
-      placa: '', obs: '', abonoEq: false, abonoMotivo: null,
-      encId: sessao.id, encNome: sessao.nome,
-      funcionarios: [{ nome: funcNome, entrada: '07:00', saida: '17:00', abono: abono, refeicao: true }]
-    });
-    return regsAtuais;
-  }).then(function() {
+  var regAbono = {
+    id: Date.now(), data: data, obraId: Number(obraId), local: local,
+    placa: '', obs: '', abonoEq: false, abonoMotivo: null,
+    encId: sessao.id, encNome: sessao.nome,
+    funcionarios: [{ nome: funcNome, entrada: '07:00', saida: '17:00', abono: abono, refeicao: true }]
+  };
+  criarReg(regAbono).then(function() {
     fecharModal('modal-banco-abono');
     renderBancoHoras();
     toast('Abono registrado!', 'ok');
