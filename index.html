@@ -1465,6 +1465,13 @@ window._sset = function(k, v) {
     .catch(function(e){ console.warn('Firestore write error:', e); });
 };
 
+function _sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
+
+// Códigos de erro do Firestore que valem retry (quedas passageiras de conexão,
+// comuns em campo com sinal fraco). permission-denied e afins não entram —
+// repetir não resolve, só atrasa o aviso de erro pro usuário.
+var ERROS_RETRYAVEIS = ['unavailable', 'deadline-exceeded', 'aborted', 'cancelled', 'internal', 'unknown'];
+
 // Grava forte_regs de forma segura contra escrita concorrente.
 // Problema que isso resolve: "_sset" normal le o CACHE local (que fica
 // desatualizado assim que outro encarregado salva um apontamento enquanto essa
@@ -1474,17 +1481,34 @@ window._sset = function(k, v) {
 // do cache), aplica a mutacao recebida e grava tudo atomicamente; se outra
 // transacao concorrente mexeu no documento nesse meio tempo, o Firestore repete
 // a transacao automaticamente com os dados atualizados em vez de perder dado.
+//
+// Diferente do _sset antigo, a transacao PRECISA de conexao ativa com o
+// servidor na hora de salvar (nao da pra gravar "otimisticamente" offline como
+// antes) — em campo com sinal fraco isso pode falhar na primeira tentativa, por
+// isso tenta de novo algumas vezes antes de avisar erro pro usuario.
 window._mutarRegs = async function(mutatorFn) {
-  var ref  = doc(db, 'dados', 'regs');
-  var novo = await runTransaction(db, async function(tx) {
-    var snap  = await tx.get(ref);
-    var atual = snap.exists() ? JSON.parse(snap.data().valor) : [];
-    var resultado = mutatorFn(atual);
-    tx.set(ref, { valor: JSON.stringify(resultado) });
-    return resultado;
-  });
-  CACHE['forte_regs'] = novo;
-  return novo;
+  var ref = doc(db, 'dados', 'regs');
+  var tentativas = 3;
+  var ultimoErro = null;
+  for (var i = 0; i < tentativas; i++) {
+    try {
+      var novo = await runTransaction(db, async function(tx) {
+        var snap  = await tx.get(ref);
+        var atual = snap.exists() ? JSON.parse(snap.data().valor) : [];
+        var resultado = mutatorFn(atual);
+        tx.set(ref, { valor: JSON.stringify(resultado) });
+        return resultado;
+      });
+      CACHE['forte_regs'] = novo;
+      return novo;
+    } catch (e) {
+      ultimoErro = e;
+      var podeRetry = ERROS_RETRYAVEIS.indexOf(e && e.code) >= 0;
+      if (!podeRetry || i === tentativas - 1) throw e;
+      await _sleep(900 * (i + 1)); // 900ms, depois 1800ms
+    }
+  }
+  throw ultimoErro;
 };
 
 // Carrega funcionários compartilhados do forte-rdo
@@ -1557,6 +1581,17 @@ function sset(k, v) { window._sset(k, v); }
 // Grava forte_regs com seguranca contra escrita concorrente (ver window._mutarRegs).
 // mutatorFn recebe o array mais recente vindo do servidor e deve retornar o novo array.
 function mutarRegs(mutatorFn) { return window._mutarRegs(mutatorFn); }
+// Mensagem de erro adequada ao tipo de falha ao salvar um apontamento
+function msgErroSalvar(e) {
+  var cod = e && e.code;
+  if (cod === 'unavailable' || cod === 'deadline-exceeded') {
+    return 'Sem conexão com o servidor. Verifique o sinal/internet e tente salvar de novo.';
+  }
+  if (cod === 'permission-denied') {
+    return 'Sem permissão pra salvar. Avise o administrador.';
+  }
+  return 'Erro ao salvar. Tente novamente.';
+}
 function getObras() { return sget('forte_obras') || []; }
 function getFuncs() { return (sget('forte_funcs') || []).concat(FUNCS_RDO); }
 function getEncs()  { return sget('forte_encs')  || []; }
@@ -2447,7 +2482,7 @@ document.getElementById('btn-salvar').addEventListener('click', function() {
     iniciarForm();
   }).catch(function(e) {
     console.error('Erro ao salvar apontamento:', e);
-    toast('Erro ao salvar. Verifique a internet e tente de novo.', 'err');
+    toast(msgErroSalvar(e), 'err');
   }).finally(function() {
     btnSalvar.disabled = false;
   });
@@ -2822,7 +2857,7 @@ document.getElementById('lista-reg').addEventListener('click', function(e) {
       toast('Ajuste marcado como resolvido.', 'ok');
     }).catch(function(e) {
       console.error('Erro ao resolver ajuste:', e);
-      toast('Erro ao salvar. Tente novamente.', 'err');
+      toast(msgErroSalvar(e), 'err');
     });
   }
   var dr = e.target.closest('[data-delreg]');
@@ -2836,7 +2871,7 @@ document.getElementById('lista-reg').addEventListener('click', function(e) {
         toast('Registro excluido.', 'ok');
       }).catch(function(e) {
         console.error('Erro ao excluir registro:', e);
-        toast('Erro ao excluir. Tente novamente.', 'err');
+        toast(msgErroSalvar(e), 'err');
       });
     });
   }
@@ -2861,7 +2896,7 @@ document.getElementById('lista-reg').addEventListener('click', function(e) {
         toast('Apontamento de ' + fnome3 + ' excluído.', 'ok');
       }).catch(function(e) {
         console.error('Erro ao excluir funcionario:', e);
-        toast('Erro ao excluir. Tente novamente.', 'err');
+        toast(msgErroSalvar(e), 'err');
       });
     });
   }
@@ -3288,7 +3323,7 @@ document.getElementById('btn-salvar-edit-reg').addEventListener('click', functio
     toast('Registro corrigido!', 'ok');
   }).catch(function(e) {
     console.error('Erro ao corrigir registro:', e);
-    toast('Erro ao salvar. Tente novamente.', 'err');
+    toast(msgErroSalvar(e), 'err');
   });
 });
 
@@ -3792,7 +3827,7 @@ function renderBancoHoras() {
           toast('Apontamento de ' + fnome + ' excluído.', 'ok');
         }).catch(function(e) {
           console.error('Erro ao excluir funcionario:', e);
-          toast('Erro ao excluir. Tente novamente.', 'err');
+          toast(msgErroSalvar(e), 'err');
         });
       });
     });
@@ -3860,7 +3895,7 @@ document.getElementById('btn-salvar-banco-abono').addEventListener('click', func
     toast('Abono registrado!', 'ok');
   }).catch(function(e) {
     console.error('Erro ao registrar abono:', e);
-    toast('Erro ao salvar. Tente novamente.', 'err');
+    toast(msgErroSalvar(e), 'err');
   });
 });
 
