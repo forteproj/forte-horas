@@ -1416,7 +1416,7 @@ body{font-family:var(--ds-font);background:var(--cf);color:var(--ct);min-height:
 <script type="module">
 // ─── FIREBASE CONFIG ────────────────────────────────────────────────────────
 import { initializeApp }                          from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs }
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs, runTransaction }
                                                   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -1463,6 +1463,28 @@ window._sset = function(k, v) {
   CACHE[k] = v;
   setDoc(doc(db, 'dados', chaveParaDoc(k)), { valor: JSON.stringify(v) })
     .catch(function(e){ console.warn('Firestore write error:', e); });
+};
+
+// Grava forte_regs de forma segura contra escrita concorrente.
+// Problema que isso resolve: "_sset" normal le o CACHE local (que fica
+// desatualizado assim que outro encarregado salva um apontamento enquanto essa
+// aba ja estava aberta) e regrava o array inteiro por cima — quem salvar por
+// ultimo apaga silenciosamente o apontamento de quem salvou antes. Essa funcao
+// roda numa transacao do Firestore: le o estado mais recente DO SERVIDOR (nao
+// do cache), aplica a mutacao recebida e grava tudo atomicamente; se outra
+// transacao concorrente mexeu no documento nesse meio tempo, o Firestore repete
+// a transacao automaticamente com os dados atualizados em vez de perder dado.
+window._mutarRegs = async function(mutatorFn) {
+  var ref  = doc(db, 'dados', 'regs');
+  var novo = await runTransaction(db, async function(tx) {
+    var snap  = await tx.get(ref);
+    var atual = snap.exists() ? JSON.parse(snap.data().valor) : [];
+    var resultado = mutatorFn(atual);
+    tx.set(ref, { valor: JSON.stringify(resultado) });
+    return resultado;
+  });
+  CACHE['forte_regs'] = novo;
+  return novo;
 };
 
 // Carrega funcionários compartilhados do forte-rdo
@@ -1532,6 +1554,9 @@ function iniciarSistema() {
 /* STORAGE — agora usa cache Firebase */
 function sget(k) { return window._sget(k); }
 function sset(k, v) { window._sset(k, v); }
+// Grava forte_regs com seguranca contra escrita concorrente (ver window._mutarRegs).
+// mutatorFn recebe o array mais recente vindo do servidor e deve retornar o novo array.
+function mutarRegs(mutatorFn) { return window._mutarRegs(mutatorFn); }
 function getObras() { return sget('forte_obras') || []; }
 function getFuncs() { return (sget('forte_funcs') || []).concat(FUNCS_RDO); }
 function getEncs()  { return sget('forte_encs')  || []; }
@@ -2412,11 +2437,20 @@ document.getElementById('btn-salvar').addEventListener('click', function() {
     funcionarios: funcs
   };
 
-  var regs = getRegs();
-  regs.unshift(reg);
-  sset('forte_regs', regs);
-  toast('Apontamento salvo!', 'ok');
-  iniciarForm();
+  var btnSalvar = document.getElementById('btn-salvar');
+  btnSalvar.disabled = true;
+  mutarRegs(function(regsAtuais) {
+    regsAtuais.unshift(reg);
+    return regsAtuais;
+  }).then(function() {
+    toast('Apontamento salvo!', 'ok');
+    iniciarForm();
+  }).catch(function(e) {
+    console.error('Erro ao salvar apontamento:', e);
+    toast('Erro ao salvar. Verifique a internet e tente de novo.', 'err');
+  }).finally(function() {
+    btnSalvar.disabled = false;
+  });
 });
 
 /* HISTORICO */
@@ -2772,27 +2806,38 @@ document.getElementById('lista-reg').addEventListener('click', function(e) {
   var rj = e.target.closest('[data-resolveraj]');
   if (rj) {
     var parts = rj.dataset.resolveraj.split('__');
-    var rid2 = Number(parts[0]), idx2 = Number(parts[1]);
-    var regsAll = getRegs();
-    for (var ri = 0; ri < regsAll.length; ri++) {
-      if (regsAll[ri].id === rid2) {
-        if (regsAll[ri].ajustes && regsAll[ri].ajustes[idx2]) {
-          regsAll[ri].ajustes[idx2].status = 'resolvido';
+    var rid2 = parts[0], idx2 = Number(parts[1]);
+    mutarRegs(function(regsAtuais) {
+      for (var ri = 0; ri < regsAtuais.length; ri++) {
+        if (String(regsAtuais[ri].id) === String(rid2)) {
+          if (regsAtuais[ri].ajustes && regsAtuais[ri].ajustes[idx2]) {
+            regsAtuais[ri].ajustes[idx2].status = 'resolvido';
+          }
+          break;
         }
-        break;
       }
-    }
-    sset('forte_regs', regsAll);
-    renderHist();
-    toast('Ajuste marcado como resolvido.', 'ok');
+      return regsAtuais;
+    }).then(function() {
+      renderHist();
+      toast('Ajuste marcado como resolvido.', 'ok');
+    }).catch(function(e) {
+      console.error('Erro ao resolver ajuste:', e);
+      toast('Erro ao salvar. Tente novamente.', 'err');
+    });
   }
   var dr = e.target.closest('[data-delreg]');
   if (dr) {
     var rid = dr.dataset.delreg;
     confirmar('Excluir este apontamento? Isso remove TODA a equipe lançada nesse dia/obra. Esta acao nao pode ser desfeita.', function() {
-      sset('forte_regs', getRegs().filter(function(r) { return String(r.id) !== String(rid); }));
-      renderHist();
-      toast('Registro excluido.', 'ok');
+      mutarRegs(function(regsAtuais) {
+        return regsAtuais.filter(function(r) { return String(r.id) !== String(rid); });
+      }).then(function() {
+        renderHist();
+        toast('Registro excluido.', 'ok');
+      }).catch(function(e) {
+        console.error('Erro ao excluir registro:', e);
+        toast('Erro ao excluir. Tente novamente.', 'err');
+      });
     });
   }
   // Excluir UM funcionario da equipe do dia, sem afetar os demais
@@ -2803,15 +2848,21 @@ document.getElementById('lista-reg').addEventListener('click', function(e) {
     var rid3 = raw.slice(0, sep);
     var fnome3 = raw.slice(sep + 2);
     confirmar('Excluir o apontamento de ' + fnome3 + ' neste dia? Os demais colaboradores da equipe não são afetados. Esta ação não pode ser desfeita.', function() {
-      var out = [];
-      getRegs().forEach(function(r) {
-        if (String(r.id) !== String(rid3)) { out.push(r); return; }
-        var restantes = (r.funcionarios || []).filter(function(f) { return f.nome !== fnome3; });
-        if (restantes.length) out.push(Object.assign({}, r, { funcionarios: restantes }));
+      mutarRegs(function(regsAtuais) {
+        var out = [];
+        regsAtuais.forEach(function(r) {
+          if (String(r.id) !== String(rid3)) { out.push(r); return; }
+          var restantes = (r.funcionarios || []).filter(function(f) { return f.nome !== fnome3; });
+          if (restantes.length) out.push(Object.assign({}, r, { funcionarios: restantes }));
+        });
+        return out;
+      }).then(function() {
+        renderHist();
+        toast('Apontamento de ' + fnome3 + ' excluído.', 'ok');
+      }).catch(function(e) {
+        console.error('Erro ao excluir funcionario:', e);
+        toast('Erro ao excluir. Tente novamente.', 'err');
       });
-      sset('forte_regs', out);
-      renderHist();
-      toast('Apontamento de ' + fnome3 + ' excluído.', 'ok');
     });
   }
 });
@@ -3218,22 +3269,27 @@ document.getElementById('btn-salvar-edit-reg').addEventListener('click', functio
   if (semFunc)       { toast('Selecione todos os funcionarios!', 'err'); return; }
   if (!funcs.length) { toast('Adicione ao menos um funcionario!', 'err'); return; }
 
-  var regs = getRegs();
-  for (var j = 0; j < regs.length; j++) {
-    if (String(regs[j].id) === String(idVal)) {
-      regs[j] = Object.assign({}, regs[j], {
-        data: data, placa: placa, obraId: obraId, local: local, obs: obs,
-        abonoEq: abonoEq, abonoMotivo: abonoEq ? abonoMot : null,
-        funcionarios: funcs
-      });
-      break;
+  mutarRegs(function(regsAtuais) {
+    for (var j = 0; j < regsAtuais.length; j++) {
+      if (String(regsAtuais[j].id) === String(idVal)) {
+        regsAtuais[j] = Object.assign({}, regsAtuais[j], {
+          data: data, placa: placa, obraId: obraId, local: local, obs: obs,
+          abonoEq: abonoEq, abonoMotivo: abonoEq ? abonoMot : null,
+          funcionarios: funcs
+        });
+        break;
+      }
     }
-  }
-  sset('forte_regs', regs);
-  fecharModal('modal-edit-reg');
-  renderHist();
-  if (document.getElementById('view-banco').classList.contains('active')) renderBancoHoras();
-  toast('Registro corrigido!', 'ok');
+    return regsAtuais;
+  }).then(function() {
+    fecharModal('modal-edit-reg');
+    renderHist();
+    if (document.getElementById('view-banco').classList.contains('active')) renderBancoHoras();
+    toast('Registro corrigido!', 'ok');
+  }).catch(function(e) {
+    console.error('Erro ao corrigir registro:', e);
+    toast('Erro ao salvar. Tente novamente.', 'err');
+  });
 });
 
 /* BANCO DE HORAS */
@@ -3721,17 +3777,23 @@ function renderBancoHoras() {
       var rid   = btn.dataset.regid;
       var fnome = btn.dataset.func || '';
       confirmar('Excluir o apontamento de ' + fnome + ' neste dia? Os demais colaboradores da equipe não são afetados. Esta ação não pode ser desfeita.', function() {
-        var out = [];
-        getRegs().forEach(function(r) {
-          if (String(r.id) !== String(rid)) { out.push(r); return; }
-          var restantes = (r.funcionarios || []).filter(function(f) { return f.nome !== fnome; });
-          // Só descarta o registro inteiro se ninguém mais restou nele
-          if (restantes.length) out.push(Object.assign({}, r, { funcionarios: restantes }));
+        mutarRegs(function(regsAtuais) {
+          var out = [];
+          regsAtuais.forEach(function(r) {
+            if (String(r.id) !== String(rid)) { out.push(r); return; }
+            var restantes = (r.funcionarios || []).filter(function(f) { return f.nome !== fnome; });
+            // Só descarta o registro inteiro se ninguém mais restou nele
+            if (restantes.length) out.push(Object.assign({}, r, { funcionarios: restantes }));
+          });
+          return out;
+        }).then(function() {
+          renderBancoHoras();
+          if (typeof renderHist === 'function') renderHist();
+          toast('Apontamento de ' + fnome + ' excluído.', 'ok');
+        }).catch(function(e) {
+          console.error('Erro ao excluir funcionario:', e);
+          toast('Erro ao excluir. Tente novamente.', 'err');
         });
-        sset('forte_regs', out);
-        renderBancoHoras();
-        if (typeof renderHist === 'function') renderHist();
-        toast('Apontamento de ' + fnome + ' excluído.', 'ok');
       });
     });
   });
@@ -3784,17 +3846,22 @@ document.getElementById('btn-salvar-banco-abono').addEventListener('click', func
   if (!abono)  { toast('Selecione o tipo de abono!', 'err'); return; }
   var obra  = getObras().find(function(o){ return String(o.id) === String(obraId); });
   var local = obra ? obra.nome + (obra.cidade && obra.cidade !== obra.nome ? ' - ' + obra.cidade : '') : '';
-  var regs  = getRegs();
-  regs.push({
-    id: Date.now(), data: data, obraId: Number(obraId), local: local,
-    placa: '', obs: '', abonoEq: false, abonoMotivo: null,
-    encId: sessao.id, encNome: sessao.nome,
-    funcionarios: [{ nome: funcNome, entrada: '07:00', saida: '17:00', abono: abono, refeicao: true }]
+  mutarRegs(function(regsAtuais) {
+    regsAtuais.push({
+      id: Date.now(), data: data, obraId: Number(obraId), local: local,
+      placa: '', obs: '', abonoEq: false, abonoMotivo: null,
+      encId: sessao.id, encNome: sessao.nome,
+      funcionarios: [{ nome: funcNome, entrada: '07:00', saida: '17:00', abono: abono, refeicao: true }]
+    });
+    return regsAtuais;
+  }).then(function() {
+    fecharModal('modal-banco-abono');
+    renderBancoHoras();
+    toast('Abono registrado!', 'ok');
+  }).catch(function(e) {
+    console.error('Erro ao registrar abono:', e);
+    toast('Erro ao salvar. Tente novamente.', 'err');
   });
-  sset('forte_regs', regs);
-  fecharModal('modal-banco-abono');
-  renderBancoHoras();
-  toast('Abono registrado!', 'ok');
 });
 
 /* CONFIGURACOES - SENHA ADMIN */
