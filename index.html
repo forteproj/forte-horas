@@ -1710,6 +1710,22 @@ function isFeriado(dataStr, ufObra, cidadeObra) {
   return false;
 }
 
+/* Dia da semana abreviado SEM depender do Intl/toLocaleDateString do navegador —
+   alguns dispositivos (principalmente Android mais antigos/WebView com dados de
+   localização incompletos) retornam abreviações erradas ou até formato errado
+   pro locale "pt-BR" (ex.: "quem." em vez de "qui.", ou às vezes volta o nome
+   completo do mês em vez do formato curto pedido). Calculado na mão = sempre
+   correto, não importa o navegador. */
+var DIAS_SEMANA_ABREV = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
+function fmtDataCurta(d) {
+  var dd = String(d.getDate()).padStart(2, '0');
+  var mm = String(d.getMonth() + 1).padStart(2, '0');
+  return DIAS_SEMANA_ABREV[d.getDay()] + ', ' + dd + '/' + mm;
+}
+function fmtDataCurtaAno(d) {
+  return fmtDataCurta(d) + '/' + d.getFullYear();
+}
+
 /* Converte minutos (pode ser decimal) para string legivel */
 function minToStr(m) {
   if (m === null || m === undefined || m < 0) return '-';
@@ -2729,7 +2745,7 @@ function renderHist() {
   var html = '';
   regs.forEach(function(r) {
     var canDel = sessao.tipo === 'admin' || r.encId === sessao.id;
-    var dt = r.data ? new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+    var dt = r.data ? fmtDataCurtaAno(new Date(r.data + 'T12:00')) : '-';
     var temAbono = r.abonoEq || r.funcionarios.some(function(f) { return f.abono && f.abono !== 'Trabalhou'; });
     var todoAbono = r.abonoEq || r.funcionarios.every(function(f) { return f.abono && f.abono !== 'Trabalhou'; });
     var bdg = '';
@@ -3047,7 +3063,7 @@ function imprimirResumoColab(funcNome, fMes, fAno) {
 
   for (var di = new Date(primeiroDia); di <= ultimoDia; di.setDate(di.getDate()+1)) {
     var dStr = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
-    var dt   = new Date(dStr + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    var dt   = fmtDataCurta(new Date(dStr + 'T12:00'));
 
     if (regsPorData[dStr]) {
       // Dia com registro
@@ -3432,7 +3448,7 @@ function imprimirBancoHoras(nomesList, fMes, fAno) {
     for (var di = new Date(primDia); di <= ultDia; di.setDate(di.getDate()+1)) {
       var dStr = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
       if (dStr > hojeStr) continue;
-      var dt   = new Date(dStr+'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      var dt   = fmtDataCurta(new Date(dStr+'T12:00'));
       var dow  = di.getDay();
       var isFds = (dow === 0 || dow === 6);
 
@@ -3681,7 +3697,7 @@ function renderBancoHoras() {
       var dStr = di.getFullYear() + '-' + String(di.getMonth()+1).padStart(2,'0') + '-' + String(di.getDate()).padStart(2,'0');
       if (dStr > hojeStr) continue;
 
-      var dt  = new Date(dStr+'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+      var dt  = fmtDataCurta(new Date(dStr+'T12:00'));
       var dow = di.getDay();
       var isFds = (dow === 0 || dow === 6);
 
@@ -4002,7 +4018,7 @@ function renderFeriados() {
   }
   var html = '';
   lista.forEach(function(f) {
-    var dtFmt  = new Date(f.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+    var dtFmt  = fmtDataCurtaAno(new Date(f.data + 'T12:00'));
     var abrang = f.abrang || 'nacional';
     var badge  = abrang === 'estadual'
       ? '<span class="status-pill" style="background:#EDE7F6;color:#4A148C;border:none;">' + (f.uf || '?') + '</span>'
@@ -4607,7 +4623,7 @@ function renderResumoColab() {
     var dStrC = diC.getFullYear() + '-' + String(diC.getMonth()+1).padStart(2,'0') + '-' + String(diC.getDate()).padStart(2,'0');
     if (dStrC > hojeStr) continue;
 
-    var dtC  = new Date(dStrC+'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    var dtC  = fmtDataCurta(new Date(dStrC+'T12:00'));
     var dowC = diC.getDay();
     var isFdsC = (dowC === 0 || dowC === 6);
 
@@ -4837,7 +4853,7 @@ function renderSols() {
 
   var html = '';
   lista.forEach(function(s) {
-    var dtFmt = s.data ? new Date(s.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+    var dtFmt = s.data ? fmtDataCurtaAno(new Date(s.data + 'T12:00')) : '-';
     var tipoBadge = s.tipo === 'ajuste'
       ? '<span class="sol-tipo-ajuste">Ajuste de horário</span>'
       : '<span class="sol-tipo-abono">Abono</span>';
